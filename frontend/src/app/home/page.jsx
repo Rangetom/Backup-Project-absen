@@ -5,6 +5,7 @@ import useAuthMiddleware from "@/hooks/auth";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/utils/axios";
 import Notification from "@/components/Notification";
+import * as faceapi from "@vladmandic/face-api";
 
 export default function EmployeeHome() {
   useAuthMiddleware();
@@ -17,6 +18,10 @@ export default function EmployeeHome() {
   const [address, setAddress] = useState(null);
   const [distance, setDistance] = useState(null);
   const [isInRange, setIsInRange] = useState(true); // Default true until calculated
+  const [isModelsLoaded, setIsModelsLoaded] = useState(false);
+  const [isFaceDetected, setIsFaceDetected] = useState(false);
+  const [isLivenessVerified, setIsLivenessVerified] = useState(false);
+  const [faceDetectionMessage, setFaceDetectionMessage] = useState("Memuat sensor wajah...");
 
   // State for today's attendance and monthly stats
   const [todayAttendance, setTodayAttendance] = useState({
@@ -50,6 +55,7 @@ export default function EmployeeHome() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const detectionInterval = useRef(null);
 
   // ===== DISTANCE CALCULATION (Haversine Formula) =====
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -121,6 +127,25 @@ export default function EmployeeHome() {
     );
   };
 
+  // ===== FACE API MODELS LOADING =====
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const MODEL_URL = "https://vladmandic.github.io/face-api/model/";
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        ]);
+        setIsModelsLoaded(true);
+        setFaceDetectionMessage("Sensor wajah siap");
+      } catch (error) {
+        console.error("Error loading face-api models:", error);
+        setFaceDetectionMessage("Gagal memuat sensor wajah");
+      }
+    };
+    loadModels();
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
@@ -166,6 +191,44 @@ export default function EmployeeHome() {
 
     videoRef.current.srcObject = stream;
     streamRef.current = stream;
+
+    // Start face detection loop
+    detectionInterval.current = setInterval(async () => {
+      if (videoRef.current && !capturedImage) {
+        const detections = await faceapi.detectAllFaces(
+          videoRef.current,
+          new faceapi.TinyFaceDetectorOptions()
+        ).withFaceLandmarks();
+
+        if (detections.length > 0) {
+          const detection = detections[0];
+          setIsFaceDetected(true);
+
+          if (!isLivenessVerified) {
+            const landmarks = detection.landmarks;
+            const mouthInnerTop = landmarks.getMouth()[14]; // Point 62
+            const mouthInnerBottom = landmarks.getMouth()[18]; // Point 66
+
+            // Calculate distance
+            const mouthDistance = Math.abs(mouthInnerBottom.y - mouthInnerTop.y);
+
+            // Liveness Threshold (simple mouth opening detection)
+            if (mouthDistance > 15) { // Threshold can be adjusted
+              setIsLivenessVerified(true);
+              setFaceDetectionMessage("Liveness terverifikasi! Silakan ambil foto.");
+            } else {
+              setFaceDetectionMessage("Silakan buka mulut Anda untuk verifikasi");
+            }
+          } else {
+            setFaceDetectionMessage("Wajah terdeteksi");
+          }
+        } else {
+          setIsFaceDetected(false);
+          setIsLivenessVerified(false);
+          setFaceDetectionMessage("Wajah tidak terdeteksi");
+        }
+      }
+    }, 200);
   };
 
   // Fungsi untuk wrap teks panjang menjadi multiple lines
@@ -240,13 +303,25 @@ export default function EmployeeHome() {
     }
 
     setCapturedImage(canvas.toDataURL("image/jpeg", 0.9));
+
+    // Stop detection loop once photo is taken
+    if (detectionInterval.current) {
+      clearInterval(detectionInterval.current);
+      detectionInterval.current = null;
+    }
   };
 
   // ===== STOP CAMERA =====
   const closeSelfie = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    if (detectionInterval.current) {
+      clearInterval(detectionInterval.current);
+      detectionInterval.current = null;
+    }
     setIsCapturing(false);
     setCapturedImage(null);
+    setIsFaceDetected(false);
+    setIsLivenessVerified(false);
     setAddress(null); // Reset alamat
   };
 
@@ -415,15 +490,15 @@ export default function EmployeeHome() {
 
                 <button
                   onClick={startSelfie}
-                  disabled={!isInRange || todayAttendance.has_checked_in}
-                  className={`px-10 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all w-full max-w-sm shadow-xl ${(!isInRange || todayAttendance.has_checked_in)
+                  disabled={!isInRange || todayAttendance.has_checked_in || !isModelsLoaded}
+                  className={`px-10 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all w-full max-w-sm shadow-xl ${(!isInRange || todayAttendance.has_checked_in || !isModelsLoaded)
                     ? 'bg-gray-100 text-gray-300 cursor-not-allowed border-none'
                     : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-300 hover:shadow-blue-400 active:scale-98'
                     }`}
                 >
                   {todayAttendance.has_checked_in
                     ? 'Anda Telah Absen'
-                    : !isInRange ? 'Luar Area Kantor' : 'Mulai Absensi Sekarang'}
+                    : !isModelsLoaded ? 'Memuat Sensor...' : !isInRange ? 'Luar Area Kantor' : 'Mulai Absensi Sekarang'}
                 </button>
               </div>
             </div>
@@ -549,7 +624,7 @@ export default function EmployeeHome() {
                 {/* Overlay guides */}
                 {!capturedImage && (
                   <div className="absolute inset-0 border-[3rem] border-black/10 flex items-center justify-center pointer-events-none">
-                    <div className="w-48 h-64 border-2 border-dashed border-white/50 rounded-full"></div>
+                    <div className={`w-48 h-64 border-2 border-dashed rounded-full transition-colors duration-500 ${isLivenessVerified ? 'border-green-400 bg-green-400/10' : 'border-white/50'}`}></div>
                   </div>
                 )}
                 <canvas ref={canvasRef} className="hidden" />
@@ -561,7 +636,8 @@ export default function EmployeeHome() {
                   <>
                     <button
                       onClick={takePhoto}
-                      className="bg-blue-600 text-white px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 flex-1 hover:scale-105 active:scale-95"
+                      disabled={!isLivenessVerified}
+                      className={`px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all flex-1 ${!isLivenessVerified ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-200 hover:scale-105 active:scale-95'}`}
                     >
                       Ambil Foto
                     </button>
@@ -588,6 +664,14 @@ export default function EmployeeHome() {
                     </button>
                   </>
                 )}
+              </div>
+              <div className={`mt-4 px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${isLivenessVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                {isLivenessVerified && (
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                )}
+                {faceDetectionMessage}
               </div>
               <p className="mt-6 text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">Data lokasi & waktu akan direkam otomatis pada foto</p>
             </div>
