@@ -59,9 +59,9 @@ class AttendanceController extends Controller
                     ],
                     'check_in_time' => $attendance->check_in_time,
                     'status' => $attendance->status,
-                    'location' => $attendance->latitude && $attendance->longitude 
+                    'location' => ($attendance->latitude && $attendance->longitude 
                         ? number_format($attendance->latitude, 6) . ', ' . number_format($attendance->longitude, 6)
-                        : 'Lokasi Kantor',
+                        : 'Lokasi Kantor') . ($attendance->office_name ? ' (' . $attendance->office_name . ')' : ''),
                     'photo_url' => request()->schemeAndHttpHost() . '/storage/' . $attendance->photo,
                     'date' => $attendance->created_at->format('d M Y'),
                 ];
@@ -100,9 +100,9 @@ class AttendanceController extends Controller
                 'has_checked_in' => true,
                 'check_in_time' => date('h:i A', strtotime($attendance->check_in_time)),
                 'status' => $attendance->status,
-                'location' => $attendance->latitude && $attendance->longitude 
+                'location' => ($attendance->latitude && $attendance->longitude 
                     ? 'Lat: ' . number_format($attendance->latitude, 6) . ', Lng: ' . number_format($attendance->longitude, 6)
-                    : 'Main Office - Floor 3',
+                    : 'Main Office - Floor 3') . ($attendance->office_name ? ' (' . $attendance->office_name . ')' : ''),
                 'date' => $attendance->created_at->format('l, F d, Y')
             ]);
         } catch (\Exception $e) {

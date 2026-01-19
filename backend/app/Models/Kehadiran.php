@@ -17,7 +17,8 @@ class Kehadiran extends Model
         'latitude',
         'longitude',
         'check_in_time',
-        'status'
+        'status',
+        'office_name'
     ];
 
     // Relation ke User

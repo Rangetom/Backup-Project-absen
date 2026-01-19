@@ -22,6 +22,8 @@ export default function EmployeeHome() {
   const [isFaceDetected, setIsFaceDetected] = useState(false);
   const [isLivenessVerified, setIsLivenessVerified] = useState(false);
   const [faceDetectionMessage, setFaceDetectionMessage] = useState("Memuat sensor wajah...");
+  const [companies, setCompanies] = useState([]);
+  const [currentAtCompany, setCurrentAtCompany] = useState(null);
 
   // State for today's attendance and monthly stats
   const [todayAttendance, setTodayAttendance] = useState({
@@ -84,8 +86,41 @@ export default function EmployeeHome() {
         const lng = pos.coords.longitude;
         setLocation({ latitude: lat, longitude: lng });
 
-        // Calculate distance if user has assigned company
-        if (user?.company) {
+        // Calculate distance against ALL companies
+        if (companies.length > 0) {
+          let foundInRange = false;
+          let nearestComp = null;
+          let minDistance = Infinity;
+
+          companies.forEach(comp => {
+            const officeLat = parseFloat(comp.latitude);
+            const officeLng = parseFloat(comp.longitude);
+
+            const dist = calculateDistance(
+              officeLat,
+              officeLng,
+              lat,
+              lng
+            );
+
+            if (dist <= comp.radius_km) {
+              foundInRange = true;
+              nearestComp = comp;
+              setDistance(dist);
+            }
+
+            if (dist < minDistance) {
+              minDistance = dist;
+              if (!foundInRange) {
+                nearestComp = comp;
+                setDistance(dist);
+              }
+            }
+          });
+
+          setIsInRange(foundInRange);
+          setCurrentAtCompany(nearestComp);
+        } else if (user?.company) {
           const officeLat = parseFloat(user.company.latitude);
           const officeLng = parseFloat(user.company.longitude);
 
@@ -97,6 +132,7 @@ export default function EmployeeHome() {
           );
           setDistance(dist);
           setIsInRange(dist <= user.company.radius_km);
+          setCurrentAtCompany(user.company);
         }
 
         // Fetch alamat menggunakan Nominatim API (OpenStreetMap)
@@ -170,7 +206,19 @@ export default function EmployeeHome() {
       }
     };
 
+    const fetchCompanies = async () => {
+      try {
+        const res = await api.get('/companies');
+        if (res.data) {
+          setCompanies(res.data);
+        }
+      } catch (error) {
+        console.error('Error fetching companies:', error);
+      }
+    };
+
     fetchData();
+    fetchCompanies();
     getLocation();
   }, [user]);
 
@@ -437,7 +485,7 @@ export default function EmployeeHome() {
                 <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-2">Presensi Kehadiran</h3>
                 <p className="text-gray-400 font-medium mb-8 max-w-sm">Pastikan Anda berada di area kantor untuk melakukan check-in</p>
 
-                {user?.company && (
+                {currentAtCompany && (
                   <div className={`mb-8 p-6 rounded-[1.5rem] border-2 transition-all w-full max-w-md ${isInRange ? 'bg-green-50/50 border-green-100 text-green-800 shadow-sm' : 'bg-red-50/50 border-red-100 text-red-800 shadow-sm'}`}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
@@ -457,16 +505,16 @@ export default function EmployeeHome() {
                     </div>
 
                     <div className="space-y-1 text-left">
-                      <p className="text-sm font-black tracking-tight">{user.company.name}</p>
+                      <p className="text-sm font-black tracking-tight">{currentAtCompany.name}</p>
                       {distance !== null && (
                         <div className="flex items-center gap-2 mt-1">
                           <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div
                               className={`h-full transition-all duration-1000 ${isInRange ? 'bg-green-600' : 'bg-red-600'}`}
-                              style={{ width: `${Math.min(100, (distance / user.company.radius_km) * 100)}%` }}
+                              style={{ width: `${Math.min(100, (distance / currentAtCompany.radius_km) * 100)}%` }}
                             ></div>
                           </div>
-                          <p className="text-[10px] font-bold text-gray-500 min-w-fit">{Math.round(distance)}m / {user.company.radius_km}m</p>
+                          <p className="text-[10px] font-bold text-gray-500 min-w-fit">{Math.round(distance)}m / {currentAtCompany.radius_km}m</p>
                         </div>
                       )}
                     </div>
@@ -479,8 +527,8 @@ export default function EmployeeHome() {
                             <p className="text-red-900">{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</p>
                           </div>
                           <div>
-                            <p className="mb-0.5">Lokasi Kantor</p>
-                            <p className="text-red-900">{user.company.latitude}, {user.company.longitude}</p>
+                            <p className="mb-0.5">Lokasi Kantor Terdekat</p>
+                            <p className="text-red-900">{currentAtCompany.latitude}, {currentAtCompany.longitude}</p>
                           </div>
                         </div>
                       </div>

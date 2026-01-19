@@ -89,6 +89,7 @@ export default function AddUserForm() {
     role: "karyawan",
     company_id: "", // Add company_id to form
   });
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
 
   const fetchUsers = async () => {
@@ -119,6 +120,12 @@ export default function AddUserForm() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const closeForm = () => {
+    setIsModalOpen(false);
+    setEditId(null);
+    setForm({ name: "", email: "", password: "", role: "karyawan", company_id: "" });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -135,8 +142,7 @@ export default function AddUserForm() {
           title: 'User berhasil ditambahkan'
         });
       }
-      setForm({ name: "", email: "", password: "", role: "karyawan", company_id: "" });
-      setEditId(null);
+      closeForm();
       fetchUsers();
     } catch (err) {
       console.error("Gagal simpan user:", err);
@@ -157,7 +163,7 @@ export default function AddUserForm() {
       company_id: u.company_id || "" // Populate company_id
     });
     setEditId(u.id);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setIsModalOpen(true);
   };
 
   const handleDelete = async (id) => {
@@ -194,209 +200,276 @@ export default function AddUserForm() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Tambah Pengguna Baru</h2>
-            <p className="mt-2 text-sm text-gray-600">Isi data pengguna di bawah ini</p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-
-            {/* excel */}
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Import Data dari Excel
-              </label>
-              <input
-                type="file"
-                accept=".xlsx, .xls"
-                onChange={handleFileUpload}
-                className="block w-full text-sm text-gray-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded file:border-0
-              file:text-sm file:font-semibold
-              file:bg-blue-50 file:text-blue-700
-              hover:file:bg-blue-100"
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Format Excel: Kolom harus memiliki header nama, email, role, dan password (opsional)
-              </p>
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">Manajemen Pengguna</h2>
+              <p className="mt-1 text-sm text-gray-600">Kelola data seluruh karyawan dan admin di sini</p>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Nama */}
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama Lengkap
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    className="text-black block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                    placeholder="Masukkan nama lengkap"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-green-500" />
-                  </div>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    className=" text-black block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
-                    placeholder="contoh@email.com"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-teal-500" />
-                  </div>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
-                    placeholder="••••••••"
-                    required={!editId}
-                  />
-                </div>
-              </div>
-
-              {/* Role Dropdown */}
-              <div>
-                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                  Role
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <UserPlus className="h-5 w-5 text-indigo-500" />
-                  </div>
-                  <select
-                    id="role"
-                    name="role"
-                    value={form.role}
-                    onChange={handleChange}
-                    className=" text-black block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition appearance-none bg-white"
-                    required
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="karyawan">Karyawan</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Company Dropdown */}
-              <div>
-                <label htmlFor="company_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  Kantor / Perusahaan
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                  </div>
-                  <select
-                    id="company_id"
-                    name="company_id"
-                    value={form.company_id || ""}
-                    onChange={handleChange}
-                    className="text-black block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition appearance-none bg-white"
-                  >
-                    <option value="">-- Pilih Kantor --</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Tombol Tambah */}
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  className="w-full flex justify-center items-center gap-2 py-3 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium rounded-lg shadow-md transition transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-cyan-300"
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input
+                  type="file"
+                  id="excel-upload"
+                  accept=".xlsx, .xls"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="excel-upload"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl font-bold text-sm transition cursor-pointer border border-green-200"
                 >
-                  <UserPlus className="h-5 w-5" />
-                  {editId ? "Update Pengguna" : "Tambah Pengguna"}
-                </button>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Import Excel
+                </label>
               </div>
-            </form>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition shadow-lg shadow-blue-200 active:scale-95"
+              >
+                <UserPlus className="h-5 w-5" />
+                Tambah Pengguna
+              </button>
+            </div>
           </div>
 
           {/* Tabel Data User */}
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Daftar Pengguna</h3>
+          <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 border border-white overflow-hidden">
+            <div className="p-8 border-b border-gray-50 flex justify-between items-center">
+              <h3 className="text-xl font-black text-gray-900 tracking-tight">Daftar Pengguna</h3>
+              <span className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+                Total: {users.length} User
+              </span>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse min-w-max">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="text-black bg-gray-100">
-                    <th className="border p-2 text-left">Nama</th>
-                    <th className="border p-2 text-left">Email</th>
-                    <th className="border p-2 text-left">Role</th>
-                    <th className="border p-2 text-left">Kantor</th>
-                    <th className="border p-2 text-left">Aksi</th>
+                  <tr className="bg-gray-50/50 text-gray-500 text-[10px] font-bold uppercase tracking-widest border-b">
+                    <th className="px-8 py-5">Nama Pengguna</th>
+                    <th className="px-8 py-5">Email</th>
+                    <th className="px-8 py-5">Akses/Role</th>
+                    <th className="px-8 py-5">Penempatan Kantor</th>
+                    <th className="px-8 py-5 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-50">
                   {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50">
-                      <td className="text-black border p-2">{u.name}</td>
-                      <td className="text-black border p-2">{u.email}</td>
-                      <td className="text-black border p-2">{u.role}</td>
-                      <td className="text-black border p-2">
-                        {companies.find(c => c.id === u.company_id)?.name || '-'}
+                    <tr key={u.id} className="hover:bg-blue-50/30 transition-colors group">
+                      <td className="px-8 py-5">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4 flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:scale-110 transition-transform">
+                            {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{u.name}</p>
+                            <p className="text-[10px] text-gray-400 font-medium">ID: #{u.id}</p>
+                          </div>
+                        </div>
                       </td>
-                      <td className="text-black border p-2 space-x-2">
-                        <button
-                          className=" bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium px-3 py-1 rounded hover:bg-yellow-500 transition"
-                          onClick={() => handleEdit(u)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-                          onClick={() => handleDelete(u.id)}
-                        >
-                          Hapus
-                        </button>
+                      <td className="px-8 py-5">
+                        <span className="text-gray-600 font-medium text-sm">{u.email}</span>
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex items-center text-gray-600">
+                          <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          <span className="font-bold text-sm">
+                            {companies.find(c => c.id === u.company_id)?.name || 'Pusat (Global)'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(u)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors active:scale-90"
+                            title="Edit User"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors active:scale-90"
+                            title="Hapus User"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {users.length === 0 && (
+              <div className="p-20 text-center">
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                  <User className="w-10 h-10" />
+                </div>
+                <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Belum ada data pengguna</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Modal Form Tambah/Edit User */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl animate-scaleIn">
+            <div className="bg-blue-600 text-white p-6 md:p-8 flex items-center justify-between">
+              <div>
+                <span className="font-black text-xs uppercase tracking-[0.2em] opacity-80 block mb-1">
+                  {editId ? "Ubah Data" : "Pendaftaran"}
+                </span>
+                <h3 className="text-xl font-black tracking-tight uppercase">
+                  {editId ? "Edit Pengguna" : "Tambah Pengguna Baru"}
+                </h3>
+              </div>
+              <button
+                onClick={closeForm}
+                className="p-2 hover:bg-white/10 rounded-xl transition-colors active:scale-90"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-8 md:p-10 max-h-[75vh] overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Nama Lengkap</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-600 text-gray-300">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <input
+                      type="text"
+                      name="name"
+                      value={form.name}
+                      onChange={handleChange}
+                      className="text-gray-900 block w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold"
+                      placeholder="Masukkan nama lengkap"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email Karyawan</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-300 group-focus-within:text-blue-600">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <input
+                        type="email"
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        className="text-gray-900 block w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold"
+                        placeholder="email@kantor.com"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Password</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-300 group-focus-within:text-blue-600">
+                        <Lock className="h-5 w-5" />
+                      </div>
+                      <input
+                        type="password"
+                        name="password"
+                        value={form.password}
+                        onChange={handleChange}
+                        className="text-gray-900 block w-full pl-12 pr-4 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold"
+                        placeholder="••••••••"
+                        required={!editId}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Hak Akses (Role)</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-300 group-focus-within:text-blue-600">
+                        <UserPlus className="h-5 w-5" />
+                      </div>
+                      <select
+                        name="role"
+                        value={form.role}
+                        onChange={handleChange}
+                        className="text-gray-900 block w-full pl-12 pr-10 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold appearance-none cursor-pointer"
+                        required
+                      >
+                        <option value="karyawan">Karyawan</option>
+                        <option value="admin">Administrator</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Kantor Penempatan</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-300 group-focus-within:text-blue-600">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
+                      <select
+                        name="company_id"
+                        value={form.company_id || ""}
+                        onChange={handleChange}
+                        className="text-gray-900 block w-full pl-12 pr-10 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold appearance-none cursor-pointer"
+                        required
+                      >
+                        <option value="" disabled>-- Pilih Kantor --</option>
+                        {companies.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={closeForm}
+                    className="flex-1 px-8 py-5 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-200 transition active:scale-95"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-[2] flex justify-center items-center gap-2 py-5 px-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-blue-200 transition active:scale-95"
+                  >
+                    {editId ? "Simpan Perubahan" : "Daftarkan Sekarang"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

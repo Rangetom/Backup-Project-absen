@@ -24,18 +24,13 @@ class fotoController extends Controller
         | VALIDASI JAM ABSENSI
         |--------------------------------------------------------------------------
         */
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDASI JAM ABSENSI
-        |--------------------------------------------------------------------------
-        */
         $setting = $user->company;
 
         if (!$setting) {
-            return response()->json(['message' => 'Anda belum terdaftar di kantor manapun. Hubungi admin.'], 403);
+            return response()->json(['message' => 'Anda tidak terdaftar di kantor manapun. Hubungi admin.'], 403);
         }
 
-        // ===== VALIDASI WAKTU DENGAN CARBON (PERBAIKAN: bandingkan sebagai objek DateTime untuk akurasi) =====
+        // ===== VALIDASI WAKTU DENGAN CARBON =====
         $today = Carbon::today();
         $start = $today->copy()->setTimeFromTimeString($setting->time_in);
         $late = $today->copy()->setTimeFromTimeString($setting->time_late);
@@ -51,29 +46,47 @@ class fotoController extends Controller
 
         $status = $now > $late ? 'TELAT' : 'HADIR';
 
-        // Log debug (dipertahankan dan disesuaikan)
-        \Log::info('DEBUG WAKTU ABSENSI', [
-            'current_time' => $now->format('H:i:s'),
-            'start_time' => $start->format('H:i:s'),
-            'late_time' => $late->format('H:i:s'),
-            'end_time' => $end->format('H:i:s'),
-            'is_before_start' => $now < $start,
-            'is_after_end' => $now > $end,
-        ]);
+        // ===== VALIDASI LOKASI (Check against ALL companies for multi-office check-in) =====
+        $companies = \App\Models\Company::all();
+        $atCompany = null;
+        $minDistance = floatval('INF');
+        $isInRange = false;
 
-        // ===== VALIDASI LOKASI =====
-        $distance = $this->distance(
-            $setting->latitude,
-            $setting->longitude,
-            $request->latitude,
-            $request->longitude
-        );
+        foreach ($companies as $comp) {
+            $dist = $this->distance(
+                $comp->latitude,
+                $comp->longitude,
+                $request->latitude,
+                $request->longitude
+            );
+            
+            $distInMeters = $dist * 1000;
+            
+            if ($distInMeters <= $comp->radius_km) {
+                $isInRange = true;
+                $atCompany = $comp;
+                break; 
+            }
 
-        if ($distance * 1000 > $setting->radius_km) {
+            if ($distInMeters < $minDistance) {
+                $minDistance = $distInMeters;
+                $atCompany = $comp;
+            }
+        }
+
+        if (!$isInRange) {
             return response()->json([
-                'message' => 'Anda berada di luar area absensi. Jarak Anda: ' . round($distance * 1000, 2) . ' meter, Radius: ' . $setting->radius_km . ' meter'
+                'message' => 'Anda berada di luar area absensi kantor manapun. Jarak terdekat: ' . round($minDistance, 2) . ' meter ke ' . $atCompany->name
             ], 403);
         }
+
+        // Log debug
+        \Log::info('DEBUG WAKTU ABSENSI', [
+            'user' => $user->name,
+            'office_assigned' => $setting->name,
+            'office_at' => $atCompany->name,
+            'current_time' => $now->format('H:i:s'),
+        ]);
         /*
         |--------------------------------------------------------------------------
         | SIMPAN FOTO (BASE64 → STORAGE)
@@ -95,6 +108,7 @@ class fotoController extends Controller
             'longitude' => $request->longitude,
             'check_in_time' => $now->format('H:i:s'),
             'status' => $status,
+            'office_name' => $atCompany ? $atCompany->name : 'Unknown Office',
         ]);
         return response()->json([
             'message' => 'Check-in berhasil',
