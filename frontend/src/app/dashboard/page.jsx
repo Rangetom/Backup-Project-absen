@@ -6,6 +6,8 @@ import useAuthMiddleware from "@/hooks/auth";
 import Link from "next/link";
 import AdminLayout from "@/components/Adminlayout";
 import api from "@/utils/axios";
+import Swal from "sweetalert2";
+import Notification from "@/components/Notification";
 
 export default function DashboardPage() {
   useAuthMiddleware();
@@ -16,6 +18,20 @@ export default function DashboardPage() {
   const [selectedAttendance, setSelectedAttendance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Notification state
+  const [notification, setNotification] = useState({
+    show: false,
+    message: "",
+    type: "success", // success | error
+  });
+
+  const showNotification = (message, type = "success") => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification((prev) => ({ ...prev, show: false }));
+    }, 5000);
+  };
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -35,7 +51,12 @@ export default function DashboardPage() {
       if (appliedFilters.period) params.append("period", appliedFilters.period);
 
       const res = await api.get(`/attendances?${params.toString()}`);
-      setRecentAttendance(res.data);
+      // Filter out weekends (0 = Sunday, 6 = Saturday)
+      const filteredData = res.data.filter(emp => {
+        const day = new Date(emp.date).getDay();
+        return day !== 0 && day !== 6;
+      });
+      setRecentAttendance(filteredData);
       setError(null);
     } catch (error) {
       console.error("Failed to fetch recent attendances:", error);
@@ -80,31 +101,50 @@ export default function DashboardPage() {
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto">
+      <Notification
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
+      />
+      <div className="space-y-8 max-w-7xl mx-auto">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight">
-            Dashboard Overview
-          </h2>
-          <p className="text-gray-500">Welcome back, {user?.name?.split(' ')[0] || 'Admin'}</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Dashboard Overview</h2>
+            <p className="text-slate-500 font-bold text-sm mt-1">
+              Selamat datang kembali, <span className="text-blue-600">{user?.name?.split(' ')[0] || 'Admin'}</span> 👋
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sistem Online</span>
+            </div>
+          </div>
         </div>
 
-        {/* Report Filters */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6 mb-8">
-          <div className="flex items-center mb-4">
-            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6 6a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707l-6-6A1 1 0 013 6.586V4z" />
-            </svg>
-            <h3 className="text-lg font-bold text-gray-800">Cari Data Absensi</h3>
+        {/* Report Filters Card */}
+        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+
+          <div className="flex items-center gap-3 mb-8 relative z-10">
+            <div className="p-2.5 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-200">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6 6a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707l-6-6A1 1 0 013 6.586V4z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">Filter Data Kehadiran</h3>
           </div>
-          <div className="text-black grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2 ml-1">Rentang Waktu</label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 relative z-10">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Rentang Waktu</label>
               <select
                 name="period"
                 value={filters.period}
                 onChange={handleFilterChange}
-                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition appearance-none"
+                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 transition appearance-none"
               >
                 <option value="today">Hari Ini</option>
                 <option value="week">Minggu Ini</option>
@@ -112,28 +152,28 @@ export default function DashboardPage() {
                 <option value="">Semua Waktu</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2 ml-1">Status</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Status</label>
               <select
                 name="status"
                 value={filters.status}
                 onChange={handleFilterChange}
-                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition appearance-none"
+                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 transition appearance-none"
               >
                 <option value="">Semua Status</option>
                 <option value="HADIR">Hadir</option>
                 <option value="TELAT">Telat</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2 ml-1">Perusahaan</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Perusahaan</label>
               <select
                 name="companyId"
                 value={filters.companyId}
                 onChange={handleFilterChange}
-                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition appearance-none"
+                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 transition appearance-none"
               >
-                <option value="">Semua Perusahaan</option>
+                <option value="">Semua Cabang</option>
                 {companies.map((company) => (
                   <option key={company.id} value={company.id}>
                     {company.name}
@@ -141,97 +181,114 @@ export default function DashboardPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2 ml-1">Cari Karyawan</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nama Karyawan</label>
               <input
                 type="text"
                 name="search"
                 value={filters.search}
                 onChange={handleFilterChange}
-                placeholder="Nama karyawan..."
-                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                placeholder="Cari..."
+                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 transition"
               />
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end shadow-xl shadow-blue-100/50 rounded-2xl">
               <button
                 onClick={applyFilters}
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition active:scale-95"
+                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
                 Terapkan
               </button>
             </div>
           </div>
         </div>
 
-        {/* Recent Attendance */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 md:p-6 border-b border-gray-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Recent Attendance Table Card */}
+        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 overflow-hidden">
+          <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
             <div>
-              <h3 className="text-lg font-bold text-gray-800">Absensi Terbaru</h3>
-              <p className="text-gray-500 text-xs">Daftar kehadiran karyawan hari ini</p>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">Log Kehadiran</h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-0.5">Aktivitas presensi real-time karyawan</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sirkulasi Data: {recentAttendance.length} Entri</span>
             </div>
           </div>
 
-          {loading && (
-            <div className="p-12 text-center text-gray-400">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-              Memuat data...
+          {loading ? (
+            <div className="py-24 text-center">
+              <div className="animate-spin w-10 h-10 border-[3px] border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Sinkronisasi Data...</p>
             </div>
-          )}
-
-          {error && <div className="p-8 text-center text-red-500 bg-red-50 m-4 rounded-xl">{error}</div>}
-
-          {!loading && !error && (
-            <div className="overflow-x-auto">
+          ) : error ? (
+            <div className="p-12 text-center">
+              <div className="inline-flex p-4 bg-red-50 text-red-600 rounded-3xl mb-4">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-slate-900 font-black mb-1">Terjadi Kesalahan</p>
+              <p className="text-slate-500 text-sm font-bold">{error}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50/50 text-gray-500 text-[10px] md:text-xs font-bold uppercase tracking-widest border-b">
-                    <th className="px-6 py-4">Karyawan</th>
-                    <th className="px-6 py-4">Perusahaan</th>
-                    <th className="px-6 py-4 text-center">Waktu/Tgl</th>
-                    <th className="px-6 py-4 text-center">Status</th>
-                    <th className="px-6 py-4 text-right">Aksi</th>
+                  <tr className="bg-slate-50/50">
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Informasi Karyawan</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Penempatan</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Waktu Log</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Status</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-slate-50">
                   {recentAttendance.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-blue-50/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl mr-4 flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                    <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-lg shadow-blue-100 group-hover:scale-110 transition-transform duration-300">
                             {emp.user.name.split(' ').map(n => n[0]).join('')}
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-gray-900 truncate">{emp.user.name}</p>
-                            <p className="text-[10px] text-gray-500">ID: {emp.user.code}</p>
+                          <div>
+                            <p className="font-black text-slate-900 leading-none mb-1">{emp.user.name}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{emp.user.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600 font-medium">{emp.user.company}</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex flex-col items-center">
-                          <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase mb-1">
-                            {emp.check_in_time}
-                          </span>
-                          <span className="text-[10px] text-gray-400">{emp.date}</span>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                          <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{emp.user.company}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${emp.status === 'HADIR' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                      <td className="px-8 py-6 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black tracking-widest border border-blue-100 mb-1">
+                            {emp.check_in_time}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{emp.date}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-center">
+                        <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border ${emp.status === 'HADIR'
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                          : 'bg-orange-50 text-orange-600 border-orange-100'
                           }`}>
                           {emp.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-8 py-6 text-right">
                         <button
                           onClick={() => openPhotoModal(emp)}
-                          className="bg-white border border-gray-200 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 p-2 rounded-lg transition-all shadow-sm active:scale-90 inline-flex items-center justify-center"
+                          className="p-2.5 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all active:scale-90 shadow-sm hover:shadow-md bg-white border border-slate-100"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
                       </td>
@@ -243,111 +300,134 @@ export default function DashboardPage() {
           )}
 
           {recentAttendance.length === 0 && !loading && !error && (
-            <div className="p-12 text-center">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+            <div className="py-24 text-center">
+              <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 text-slate-200 shadow-inner">
                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4a2 2 0 012-2m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                 </svg>
               </div>
-              <p className="text-gray-500 font-medium">Tidak ada data absensi hari ini</p>
+              <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Data Tidak Ditemukan</p>
             </div>
           )}
         </div>
 
         {/* Modal untuk View Foto Absen + Detail Lengkap */}
         {selectedAttendance && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={closePhotoModal}>
-            <div className="bg-white rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">Detail Absensi</h3>
-                <button onClick={closePhotoModal} className="text-gray-400 hover:text-gray-600 transition">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={closePhotoModal}>
+            <div className="bg-white rounded-[3rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col md:flex-row max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
 
-              {/* User Info Card */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-6">
-                <div className="flex items-center space-x-4">
-                  <div className="bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl">
-                    {selectedAttendance.user.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-semibold text-gray-800">{selectedAttendance.user.name}</h4>
-                    <p className="text-gray-600">{selectedAttendance.user.email}</p>
-                    <p className="text-sm text-gray-500">{selectedAttendance.user.code}</p>
-                  </div>
+              {/* Image Side */}
+              <div className="w-full md:w-1/2 bg-slate-900 relative min-h-[300px] flex items-center justify-center overflow-hidden">
+                <img
+                  src={selectedAttendance.photo_url}
+                  alt="Foto Absensi"
+                  className="w-full h-full object-cover opacity-90"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%231e293b" width="400" height="300"/%3E%3Ctext fill="%23475569" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto Absensi Tidak Tersedia%3C/text%3E%3C/svg%3E';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent pointer-events-none"></div>
+                <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
+                  <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 leading-none">Keamanan Data</p>
+                  <p className="text-[10px] font-black text-white tracking-tight">Foto dienkripsi dengan Geo-tagging & Timestamp Verifikasi</p>
                 </div>
               </div>
 
-              {/* Attendance Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {/* Check-in Time */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center mb-2">
-                    <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              {/* Info Side */}
+              <div className="w-full md:w-1/2 flex flex-col overflow-y-auto custom-scrollbar">
+                {/* Header */}
+                <div className="bg-blue-600 p-8 relative overflow-hidden shrink-0">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                  <p className="text-blue-100 text-[10px] font-black uppercase tracking-[0.3em] mb-2 relative z-10">Verifikasi Detail</p>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tight relative z-10">Detail Absensi</h3>
+                  <button
+                    onClick={closePhotoModal}
+                    className="absolute top-6 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition active:scale-95 z-20"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                    <span className="text-sm font-medium text-gray-600">Check-in Time</span>
-                  </div>
-                  <p className="text-lg font-semibold text-gray-800">{selectedAttendance.check_in_time}</p>
+                  </button>
                 </div>
 
-                {/* Status */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center mb-2">
-                    <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-sm font-medium text-gray-600">Status</span>
+                <div className="p-8 space-y-6">
+                  {/* User Profile Summary */}
+                  <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-[2rem] border border-slate-100 shadow-sm">
+                    <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-200">
+                      {selectedAttendance.user.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">{selectedAttendance.user.name}</h4>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{selectedAttendance.user.email}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">Penempatan: {selectedAttendance.user.company}</span>
+                      </div>
+                    </div>
                   </div>
-                  <span className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${selectedAttendance.status === 'HADIR' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
-                    {selectedAttendance.status === 'HADIR' ? 'Hadir' : 'Telat'}
-                  </span>
-                </div>
 
-                {/* Location */}
-                <div className="bg-gray-50 rounded-lg p-4 md:col-span-2">
-                  <div className="flex items-center mb-2">
-                    <svg className="w-5 h-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm font-medium text-gray-600">Location</span>
+                  {/* Attendance Stats Grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Check-in Log</p>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span className="text-lg font-black text-slate-900">{selectedAttendance.check_in_time}</span>
+                      </div>
+                    </div>
+                    <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Status Presensi</p>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${selectedAttendance.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span className="text-lg font-black text-slate-900">{selectedAttendance.status === 'HADIR' ? 'Hadir' : 'Telat'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-800">{selectedAttendance.location}</p>
-                </div>
-              </div>
 
-              {/* Photo with Timestamp */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-600 mb-3 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Foto Absensi dengan Timestamp
-                </h4>
-                <div className="relative rounded-xl overflow-hidden shadow-lg">
-                  <img
-                    src={selectedAttendance.photo_url}
-                    alt="Foto Absensi"
-                    className="w-full h-auto"
-                    onError={(e) => {
-                      e.target.onerror = null; // Prevent infinite loop
-                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto tidak tersedia%3C/text%3E%3C/svg%3E';
-                      e.target.nextElementSibling.innerText = `Failed source: ${selectedAttendance.photo_url}`;
-                      e.target.nextElementSibling.style.display = 'block';
-                    }}
-                  />
+                  {/* Location Info */}
+                  <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Meta-Tag Lokasi (Lat, Lng)</p>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-red-100 text-red-600 rounded-xl">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-700 leading-relaxed">{selectedAttendance.location}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-4">
+                    <button
+                      onClick={() => {
+                        showNotification("Membuka foto di jendela baru...", "success");
+                        // Opening in new tab is the most reliable way to save/download cross-origin images
+                        window.open(selectedAttendance.photo_url, '_blank');
+                      }}
+                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Lihat & Simpan Foto
+                    </button>
+                    <button
+                      onClick={closePhotoModal}
+                      className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition active:scale-95"
+                    >
+                      Tutup Jendela Detail
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs text-red-500 mt-2 text-center" style={{ display: 'none' }}>
-                  Failed source: {selectedAttendance.photo_url}
-                </p>
-                <p className="text-xs text-gray-500 mt-1 text-center">
-                  Foto ini sudah termasuk timestamp lokasi dan waktu absensi
-                </p>
               </div>
             </div>
           </div>

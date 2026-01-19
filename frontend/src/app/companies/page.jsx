@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import "leaflet/dist/leaflet.css";
 import useAuthMiddleware from "@/hooks/auth";
 import Notification from "@/components/Notification";
+import { X, Building2, Clock, MapPin, Target, Timer, Map as MapIcon } from 'lucide-react';
 
 // Dynamic import for Map to avoid SSR issues
 const MapContainer = dynamic(
@@ -202,221 +203,322 @@ export default function CompaniesPage() {
                 show={notification.show}
                 message={notification.message}
                 type={notification.type}
-                onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
+                onClose={() => setNotification(prev => ({ ...prev, show: false }))}
             />
-            <div className="p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold text-gray-800">Company Management</h1>
+
+            <div className="space-y-8">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Manajemen Kantor</h2>
+                        <p className="text-slate-500 font-bold text-sm mt-1">Kelola data cabang dan titik lokasi presensi AttendTrack</p>
+                    </div>
                     <button
                         onClick={openAddModal}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-200 transition active:scale-95 group"
                     >
-                        + Add Company
+                        <Building2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        Tambah Kantor
                     </button>
                 </div>
 
-                <div className="bg-white rounded-xl shadow overflow-hidden">
-                    <table className="w-full text-left">
-                        <thead className="bg-gray-50 border-b">
-                            <tr>
-                                <th className="px-6 py-3 text-sm font-semibold text-gray-600">Name</th>
-                                <th className="px-6 py-3 text-sm font-semibold text-gray-600">Location (Lat, Lng)</th>
-                                <th className="px-6 py-3 text-sm font-semibold text-gray-600">Work Hours</th>
-                                <th className="px-6 py-3 text-sm font-semibold text-gray-600">Radius</th>
-                                <th className="px-6 py-3 text-sm font-semibold text-gray-600">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {companies.map((company) => (
-                                <tr key={company.id} className="hover:bg-gray-50">
-                                    <td className="text-black px-6 py-4 font-medium">{company.name}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {Number(company.latitude).toFixed(4)}, {Number(company.longitude).toFixed(4)}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {company.time_in} - {company.time_out}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">{company.radius_km} meters</td>
-                                    <td className="px-6 py-4 space-x-2">
-                                        <button
-                                            onClick={() => handleEdit(company)}
-                                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(company.id)}
-                                            className="text-red-600 hover:text-red-800 text-sm font-medium"
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
+                {/* Companies Table Card */}
+                <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 overflow-hidden relative">
+                    <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">Daftar Cabang</h3>
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total: {companies.length} Lokasi Aktif</span>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/50">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Nama Kantor</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Jam Kerja</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Radius Aman</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">Manajemen</th>
                                 </tr>
-                            ))}
-                            {companies.length === 0 && !loading && (
-                                <tr>
-                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                                        No companies found. Create one checking in.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {companies.map((company) => (
+                                    <tr key={company.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black text-base shadow-inner group-hover:bg-blue-600 group-hover:text-white group-hover:-rotate-12 transition-all duration-500">
+                                                    <Building2 className="w-6 h-6" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-black text-slate-900 leading-none mb-1">{company.name}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Office ID #{company.id}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2 text-slate-600">
+                                                <div className="p-1.5 bg-slate-100 rounded-lg group-hover:bg-blue-50 transition-colors duration-300">
+                                                    <Clock className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600" />
+                                                </div>
+                                                <span className="text-sm font-bold tracking-tight">{company.time_in} - {company.time_out}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-black border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                                                    {company.radius_km} <span className="opacity-60">Meter</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleEdit(company)}
+                                                    className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all active:scale-90 shadow-sm hover:shadow-md bg-white border border-slate-100"
+                                                    title="Edit Lokasi"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(company.id)}
+                                                    className="p-2.5 text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-90 shadow-sm hover:shadow-md bg-white border border-slate-100"
+                                                    title="Hapus Kantor"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {companies.length === 0 && !loading && (
+                                    <tr>
+                                        <td colSpan="4" className="px-8 py-20 text-center">
+                                            <div className="flex flex-col items-center opacity-40">
+                                                <Building2 className="w-16 h-16 text-slate-300 mb-4" />
+                                                <p className="font-bold text-slate-500 uppercase tracking-widest text-xs">Belum ada data kantor</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+            </div>
 
-                {/* Modal */}
-                {showModal && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                        <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-                                <h3 className="text-xl font-bold text-gray-800">
-                                    {isEditing ? "Edit Company" : "Add New Company"}
+            {/* Modal - Modern & Integrated Leaflet */}
+            {showModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-[3rem] w-full max-w-5xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col md:flex-row">
+                        {/* Map View Side - Left */}
+                        <div className="w-full md:w-1/2 bg-slate-100 h-64 md:h-auto relative">
+                            <MapContainer
+                                center={[mapPosition.lat, mapPosition.lng]}
+                                zoom={15}
+                                style={{ height: "100%", width: "100%" }}
+                            >
+                                <TileLayer
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                    attribution='&copy; OpenStreetMap contributors'
+                                />
+                                <MapSearchControl setPosition={setMapPosition} />
+                                <LocationMarker position={mapPosition} setPosition={setMapPosition} />
+                                <Circle
+                                    center={mapPosition}
+                                    radius={Number(form.radius_km)}
+                                    pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.15, weight: 2 }}
+                                />
+                            </MapContainer>
+                            <div className="absolute top-6 left-6 z-[1000] bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/50 flex items-center gap-3">
+                                <div className="p-2 bg-blue-600 rounded-lg text-white">
+                                    <MapPin className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Koordinat Terpilih</p>
+                                    <p className="text-xs font-black text-slate-900">
+                                        {mapPosition.lat.toFixed(6)}, {mapPosition.lng.toFixed(6)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Form Side - Right */}
+                        <div className="w-full md:w-1/2 flex flex-col overflow-y-auto custom-scrollbar max-h-[90vh]">
+                            {/* Header */}
+                            <div className="bg-blue-600 p-8 relative overflow-hidden shrink-0">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                                <p className="text-blue-100 text-[10px] font-black uppercase tracking-[0.3em] mb-2 relative z-10">Konfigurasi Cabang</p>
+                                <h3 className="text-2xl font-black text-white uppercase tracking-tight relative z-10">
+                                    {isEditing ? "Ubah Data Kantor" : "Tambah Kantor Baru"}
                                 </h3>
-                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+                                <button
+                                    onClick={() => setShowModal(false)}
+                                    className="absolute top-6 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition active:scale-95 z-20"
+                                >
+                                    <X className="w-5 h-5 text-white" />
+                                </button>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Left: Form Inputs */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                            {/* Form Input */}
+                            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nama Branch Kantor</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                            <Building2 className="w-5 h-5" />
+                                        </div>
                                         <input
                                             type="text"
-                                            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                            className="text-slate-900 block w-full pl-14 pr-10 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold"
                                             value={form.name}
                                             onChange={(e) => setForm({ ...form, name: e.target.value })}
                                             required
-                                            placeholder="e.g. Kantor Pusat Jakarta"
+                                            placeholder="Contoh: Kantor Pusat Jakarta"
                                         />
                                     </div>
+                                </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Entry Time</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Latitude</label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                                <MapPin className="w-5 h-5" />
+                                            </div>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                className="text-slate-900 block w-full pl-14 pr-5 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold"
+                                                value={form.latitude}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value);
+                                                    setForm({ ...form, latitude: val });
+                                                    setMapPosition(prev => ({ ...prev, lat: val }));
+                                                }}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Longitude</label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                                <MapPin className="w-5 h-5" />
+                                            </div>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                className="text-slate-900 block w-full pl-14 pr-5 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold"
+                                                value={form.longitude}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value);
+                                                    setForm({ ...form, longitude: val });
+                                                    setMapPosition(prev => ({ ...prev, lng: val }));
+                                                }}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Jam Masuk</label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                                <Clock className="w-5 h-5" />
+                                            </div>
                                             <input
                                                 type="time"
-                                                step="1"
-                                                className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                className="text-slate-900 block w-full pl-14 pr-5 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold text-xs"
                                                 value={form.time_in}
                                                 onChange={(e) => setForm({ ...form, time_in: e.target.value })}
                                                 required
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Late Time</label>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Batas Telat</label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                                <Timer className="w-5 h-5" />
+                                            </div>
                                             <input
                                                 type="time"
-                                                step="1"
-                                                className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                className="text-slate-900 block w-full pl-14 pr-5 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold text-xs"
                                                 value={form.time_late}
                                                 onChange={(e) => setForm({ ...form, time_late: e.target.value })}
                                                 required
                                             />
                                         </div>
                                     </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Exit Time</label>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Jam Pulang</label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                                <Clock className="w-5 h-5" />
+                                            </div>
                                             <input
                                                 type="time"
-                                                step="1"
-                                                className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                                className="text-slate-900 block w-full pl-14 pr-5 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold text-xs"
                                                 value={form.time_out}
                                                 onChange={(e) => setForm({ ...form, time_out: e.target.value })}
                                                 required
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Radius (Meters)</label>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between ml-4">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Radius Presensi</label>
+                                        <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-xl border border-blue-100">
                                             <input
                                                 type="number"
-                                                className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                                 value={form.radius_km}
-                                                onChange={(e) => setForm({ ...form, radius_km: e.target.value })}
-                                                required
-                                                min="1"
+                                                onChange={(e) => setForm({ ...form, radius_km: parseInt(e.target.value) || 0 })}
+                                                className="bg-transparent border-none p-0 w-16 text-blue-600 font-black text-sm focus:ring-0"
                                             />
+                                            <span className="text-[10px] font-black text-blue-600/60 uppercase">Meter</span>
                                         </div>
                                     </div>
-
-                                    <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800">
-                                        <p className="font-semibold mb-2">Selected Location:</p>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div>
-                                                <label className="text-xs text-gray-600 block">Latitude</label>
-                                                <input
-                                                    type="number"
-                                                    step="0.000001"
-                                                    className="w-full border rounded px-2 py-1 text-sm"
-                                                    value={form.latitude}
-                                                    onChange={(e) => {
-                                                        const lat = parseFloat(e.target.value);
-                                                        setForm({ ...form, latitude: lat });
-                                                        setMapPosition({ ...mapPosition, lat: lat });
-                                                    }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-600 block">Longitude</label>
-                                                <input
-                                                    type="number"
-                                                    step="0.000001"
-                                                    className="w-full border rounded px-2 py-1 text-sm"
-                                                    value={form.longitude}
-                                                    onChange={(e) => {
-                                                        const lng = parseFloat(e.target.value);
-                                                        setForm({ ...form, longitude: lng });
-                                                        setMapPosition({ ...mapPosition, lng: lng });
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <p className="mt-2 text-xs opacity-75">Click on map or drag marker to adjust.</p>
+                                    <div className="relative h-12 flex items-center bg-slate-50 rounded-2xl px-6">
+                                        <input
+                                            type="range"
+                                            min="10"
+                                            max="1000"
+                                            step="10"
+                                            className="w-full accent-blue-600 h-1.5 rounded-full"
+                                            value={form.radius_km}
+                                            onChange={(e) => setForm({ ...form, radius_km: parseInt(e.target.value) })}
+                                        />
                                     </div>
                                 </div>
 
-                                {/* Right: Map Selector */}
-                                <div className="h-80 lg:h-auto min-h-[300px] bg-gray-100 rounded-xl overflow-hidden border">
-                                    <MapContainer
-                                        center={[mapPosition.lat, mapPosition.lng]}
-                                        zoom={13}
-                                        style={{ height: "100%", width: "100%" }}
-                                    >
-                                        <TileLayer
-                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                            attribution='&copy; OpenStreetMap contributors'
-                                        />
-                                        <MapSearchControl setPosition={setMapPosition} />
-                                        <LocationMarker position={mapPosition} setPosition={setMapPosition} />
-                                        <Circle
-                                            center={mapPosition}
-                                            radius={Number(form.radius_km)}
-                                            pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }}
-                                        />
-                                    </MapContainer>
-                                </div>
-
-                                <div className="col-span-1 lg:col-span-2 pt-4 border-t flex justify-end gap-3">
+                                <div className="flex gap-4 pt-6">
                                     <button
                                         type="button"
                                         onClick={() => setShowModal(false)}
-                                        className="px-6 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                                        className="flex-1 px-8 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition active:scale-95"
                                     >
-                                        Cancel
+                                        Batal
                                     </button>
                                     <button
                                         type="submit"
-                                        className="bg-blue-600 text-white px-8 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
+                                        className="flex-[2] py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-blue-200 transition active:scale-95"
                                     >
-                                        {isEditing ? "Save Changes" : "Create Company"}
+                                        {isEditing ? "Aktualisasi Data" : "Daftarkan Kantor"}
                                     </button>
                                 </div>
                             </form>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

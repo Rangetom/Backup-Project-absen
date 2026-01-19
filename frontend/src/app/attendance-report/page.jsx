@@ -44,7 +44,12 @@ export default function AttendanceReportPage() {
   const fetchDetailedAttendance = async () => {
     try {
       const res = await api.get("/attendances?period=month");
-      return res.data;
+      // Filter out weekends (0 = Sunday, 6 = Saturday)
+      const filteredData = res.data.filter(emp => {
+        const day = new Date(emp.date).getDay();
+        return day !== 0 && day !== 6;
+      });
+      return filteredData;
     } catch (err) {
       console.error("Failed to fetch detailed attendance:", err);
       return [];
@@ -53,9 +58,15 @@ export default function AttendanceReportPage() {
 
   const handleExport = async () => {
     setLoading(true);
-    setNotification({ show: true, message: "Sedang menyiapkan data bulanan...", type: "info" });
+    setNotification({ show: true, message: "Sedang menyiapkan laporan eksekutif...", type: "info" });
     try {
-      const details = await fetchDetailedAttendance();
+      const rawDetails = await fetchDetailedAttendance();
+
+      // Filter out weekends (0 = Sunday, 6 = Saturday)
+      const details = rawDetails.filter(emp => {
+        const day = new Date(emp.date).getDay();
+        return day !== 0 && day !== 6;
+      });
 
       if (!details || details.length === 0) {
         setNotification({ show: true, message: "Tidak ada data absensi untuk diexport.", type: "warning" });
@@ -63,14 +74,14 @@ export default function AttendanceReportPage() {
         return;
       }
 
-      setNotification({ show: true, message: "Mengambil gambar grafik...", type: "info" });
+      setNotification({ show: true, message: "Menangkap data visual...", type: "info" });
 
       // Capture charts as images
       const captureChart = async (ref) => {
         if (!ref.current) return null;
         try {
           const canvas = await html2canvas(ref.current, {
-            scale: 1,
+            scale: 2, // Higher quality
             useCORS: true,
             logging: false,
             backgroundColor: "#ffffff"
@@ -82,131 +93,159 @@ export default function AttendanceReportPage() {
         }
       };
 
-      // Wait a bit for charts to be fully ready
       await new Promise(resolve => setTimeout(resolve, 1000));
       const barChartImg = await captureChart(barChartRef);
       const pieChartImg = await captureChart(pieChartRef);
 
-      // Initialize ExcelJS Workbook
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Attendance Dashboard");
 
-      // Set column widths
+      // Column definitions
       worksheet.columns = [
-        { width: 25 }, { width: 15 }, { width: 5 }, { width: 5 }, // Sidebar
-        { width: 10 }, { width: 30 }, { width: 25 }, { width: 15 }, { width: 18 }, { width: 18 } // Table
+        { width: 5 },  // A: Gap
+        { width: 25 }, // B: Metric Labels
+        { width: 15 }, // C: Values
+        { width: 8 },  // D: Gap
+        { width: 10 }, // E: NO
+        { width: 35 }, // F: NAMA
+        { width: 25 }, // G: KANTOR
+        { width: 15 }, // H: STATUS
+        { width: 18 }, // I: JAM
+        { width: 18 }  // J: TANGGAL
       ];
 
-      // --- HEADER ---
-      worksheet.mergeCells('A1:C2');
-      const titleCell = worksheet.getCell('A1');
-      titleCell.value = "ATTENDTRACK MONTHLY REPORT";
-      titleCell.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
-      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
+      // --- BRANDING HEADER ---
+      worksheet.mergeCells('B2:C3');
+      const brandCell = worksheet.getCell('B2');
+      brandCell.value = "ATTENDTRACK";
+      brandCell.font = { name: 'Arial Black', size: 20, color: { argb: 'FF1E40AF' } };
+      brandCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
-      worksheet.mergeCells('E1:J2');
-      const tableTitleCell = worksheet.getCell('E1');
-      tableTitleCell.value = "TABEL KEHADIRAN KARYAWAN (BULANAN)";
-      tableTitleCell.font = { size: 16, bold: true, color: { argb: 'FF1F2937' } };
-      tableTitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.mergeCells('E2:J3');
+      const mainTitle = worksheet.getCell('E2');
+      mainTitle.value = "MONTHLY ATTENDANCE ANALYSIS REPORT";
+      mainTitle.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF0F172A' } };
+      mainTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+      mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 
-      worksheet.mergeCells('A3:C3');
-      const dateCell = worksheet.getCell('A3');
-      dateCell.value = new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-      dateCell.font = { italic: true, size: 12 };
-      dateCell.alignment = { horizontal: 'center' };
+      // --- INFO SECTION ---
+      worksheet.getCell('E4').value = `Generated: ${new Date().toLocaleString('id-ID')}`;
+      worksheet.getCell('E4').font = { size: 10, italic: true, color: { argb: 'FF64748B' } };
+      worksheet.mergeCells('E4:J4');
 
-      // --- SIDEBAR STATS ---
-      const statsStartRow = 5;
-      const stats = [
-        { label: "Attendance Rate", value: `${reportData.overallStats.attendanceRate}%`, color: 'FFDBEAFE', textColor: 'FF1E40AF' },
-        { label: "Late Rate", value: `${reportData.overallStats.lateRate}%`, color: 'FFFFEDD5', textColor: 'FF9A3412' },
-        { label: "Absence Rate", value: `${reportData.overallStats.absenceRate}%`, color: 'FFFEE2E2', textColor: 'FF991B1B' },
-        { label: "Total Data", value: details.length, color: 'FFF3F4F6', textColor: 'FF374151' }
-      ];
+      // --- SIDEBAR METRICS ---
+      const drawMetric = (row, label, value, color, textColor) => {
+        worksheet.getCell(row, 2).value = label;
+        worksheet.getCell(row, 2).font = { size: 9, bold: true, color: { argb: 'FF64748B' } };
 
-      stats.forEach((stat, i) => {
-        const rowIdx = statsStartRow + (i * 4);
-        worksheet.getCell(rowIdx, 1).value = stat.label.toUpperCase();
-        const vCell = worksheet.getCell(rowIdx + 1, 1);
-        vCell.value = stat.value;
-        vCell.font = { size: 22, bold: true, color: { argb: stat.textColor } };
-        vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: stat.color } };
+        const vCell = worksheet.getCell(row + 1, 2);
+        vCell.value = value;
+        vCell.font = { size: 24, bold: true, color: { argb: textColor } };
+        vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
         vCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        worksheet.mergeCells(rowIdx + 1, 1, rowIdx + 2, 2);
-      });
+        vCell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
+        worksheet.mergeCells(row + 1, 2, row + 2, 3);
+      };
 
-      // --- MAIN TABLE ---
-      const headers = ["No", "Nama Lengkap", "Perusahaan", "Status", "Jam Check-in", "Tanggal"];
+      drawMetric(6, "ATTENDANCE RATE", `${reportData.overallStats.attendanceRate}%`, 'FFDBEAFE', 'FF1E40AF');
+      drawMetric(10, "LATE RATE", `${reportData.overallStats.lateRate}%`, 'FFFFEDD5', 'FF9A3412');
+      drawMetric(14, "ABSENCE RATE", `${reportData.overallStats.absenceRate}%`, 'FFFEE2E2', 'FF991B1B');
+      drawMetric(18, "TOTAL RECORDS", details.length, 'FFF8FAFC', 'FF334155');
+
+      // --- DATA TABLE ---
+      const tableHeaderRow = 6;
+      const headers = ["NO", "NAMA KARYAWAN", "PENEMPATAN KANTOR", "STATUS", "WAKTU", "TANGGAL"];
       headers.forEach((h, i) => {
-        const cell = worksheet.getCell(4, 5 + i);
+        const cell = worksheet.getCell(tableHeaderRow, 5 + i);
         cell.value = h;
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
-        cell.alignment = { horizontal: 'center' };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = { bottom: { style: 'medium', color: { argb: 'FF3B82F6' } } };
       });
 
       details.forEach((emp, idx) => {
-        const rowIdx = 5 + idx;
-        worksheet.getCell(rowIdx, 5).value = idx + 1;
-        worksheet.getCell(rowIdx, 6).value = emp.user.name;
-        worksheet.getCell(rowIdx, 7).value = emp.user.company || "-";
-        worksheet.getCell(rowIdx, 8).value = emp.status;
-        worksheet.getCell(rowIdx, 9).value = emp.check_in_time || "-";
-        worksheet.getCell(rowIdx, 10).value = emp.date;
+        const rowIdx = tableHeaderRow + 1 + idx;
+        const rowData = [
+          idx + 1,
+          emp.user.name,
+          emp.user.company || "Global",
+          emp.status,
+          emp.check_in_time || "--:--",
+          emp.date
+        ];
 
-        const row = worksheet.getRow(rowIdx);
-        row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-          if (colNumber >= 5) {
-            cell.border = { bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } } };
-            cell.alignment = { horizontal: 'center' };
+        rowData.forEach((val, i) => {
+          const cell = worksheet.getCell(rowIdx, 5 + i);
+          cell.value = val;
+          cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
+          cell.font = { size: 10, color: { argb: 'FF334155' } };
+
+          // Striping
+          if (idx % 2 === 1) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          }
+
+          cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
+
+          // Status Coloring
+          if (i === 3) {
+            if (val === 'HADIR') cell.font = { bold: true, color: { argb: 'FF059669' } };
+            if (val === 'TELAT') cell.font = { bold: true, color: { argb: 'FFD97706' } };
           }
         });
-
-        const statusCell = worksheet.getCell(rowIdx, 8);
-        if (emp.status === 'HADIR') statusCell.font = { color: { argb: 'FF10B981' }, bold: true };
-        if (emp.status === 'TELAT') statusCell.font = { color: { argb: 'FFF59E0B' }, bold: true };
       });
 
-      // --- EMBED CHARTS ---
-      const tableEndRow = 5 + details.length + 3;
+      // --- VISUAL ANALYTICS SECTION ---
+      const chartStartRow = Math.max(22, tableHeaderRow + details.length + 3);
+
+      worksheet.mergeCells(`B${chartStartRow}:J${chartStartRow}`);
+      const vizTitle = worksheet.getCell(`B${chartStartRow}`);
+      vizTitle.value = "VISUAL ANALYTICS & TRENDS";
+      vizTitle.font = { bold: true, size: 12, color: { argb: 'FF1E293B' } };
+      vizTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      vizTitle.alignment = { horizontal: 'left', vertical: 'middle' };
 
       if (barChartImg) {
         try {
           const imageId = workbook.addImage({ base64: barChartImg, extension: 'png' });
           worksheet.addImage(imageId, {
-            tl: { col: 4.5, row: tableEndRow },
-            ext: { width: 500, height: 300 }
+            tl: { col: 1, row: chartStartRow + 1 },
+            ext: { width: 450, height: 260 }
           });
-        } catch (e) { console.error("Failed to add bar chart image", e); }
+        } catch (e) { console.error("Bar chart embed failed", e); }
       }
 
       if (pieChartImg) {
         try {
           const imageId = workbook.addImage({ base64: pieChartImg, extension: 'png' });
           worksheet.addImage(imageId, {
-            tl: { col: 4.5, row: tableEndRow + 18 },
-            ext: { width: 450, height: 300 }
+            tl: { col: 6, row: chartStartRow + 1 },
+            ext: { width: 350, height: 260 }
           });
-        } catch (e) { console.error("Failed to add pie chart image", e); }
+        } catch (e) { console.error("Pie chart embed failed", e); }
       }
 
-      setNotification({ show: true, message: "Membangun file Excel...", type: "info" });
+      setNotification({ show: true, message: "Finalisasi file...", type: "info" });
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `Monthly_Attendance_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      anchor.download = `AttendTrack_Executive_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
       anchor.click();
       window.URL.revokeObjectURL(url);
 
-      setNotification({ show: true, message: "Laporan berhasil didownload!", type: "success" });
+      setNotification({ show: true, message: "Laporan eksekutif berhasil diunduh!", type: "success" });
       setLoading(false);
     } catch (err) {
       console.error("Export failed:", err);
-      setNotification({ show: true, message: "Gagal mendownload laporan.", type: "error" });
+      setNotification({ show: true, message: "Gagal memproses laporan.", type: "error" });
       setLoading(false);
     }
   };
@@ -240,216 +279,245 @@ export default function AttendanceReportPage() {
 
   return (
     <AdminLayout>
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-gray-900">Attendance Report</h2>
-          <p className="text-gray-600">Comprehensive analytics and data visualization</p>
-        </div>
-
-        <div>
+      <div className="space-y-8 max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Analisis Kehadiran</h2>
+            <p className="text-slate-500 font-bold text-sm mt-1">Visualisasi data dan analitik komprehensif sistem AttendTrack</p>
+          </div>
           <button
             onClick={handleExport}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 flex items-center gap-2 shadow-lg hover:shadow-green-100 transition-all active:scale-95"
+            disabled={loading}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-emerald-100 transition active:scale-95 disabled:opacity-50 disabled:pointer-events-none group"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
-            Export to Excel
+            Export Laporan Bulanan
           </button>
         </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 relative">
-        {loading && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+        {/* Highlight Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+          {loading && !reportData.overallStats.totalPresent && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex items-center justify-center rounded-[2.5rem]">
+              <div className="animate-spin w-10 h-10 border-[3px] border-blue-600 border-t-transparent rounded-full"></div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-100">Live Analytics</span>
+            </div>
+            <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Total Kehadiran</p>
+            <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.attendanceRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="bg-orange-50 text-orange-600 p-4 rounded-2xl group-hover:bg-orange-600 group-hover:text-white transition-colors duration-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="bg-orange-50 text-orange-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-orange-100">Monthly Avg</span>
+            </div>
+            <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Rata-rata Terlambat</p>
+            <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.lateRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="bg-rose-50 text-rose-600 p-4 rounded-2xl group-hover:bg-rose-600 group-hover:text-white transition-colors duration-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <span className="bg-rose-50 text-rose-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-rose-100">Real-time</span>
+            </div>
+            <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Tingkat Absensi</p>
+            <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.absenceRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-rose-50 border border-rose-100 text-rose-600 px-8 py-4 rounded-3xl text-sm font-bold flex items-center gap-3">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-blue-100 p-4 rounded-xl">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 6-Month Trend */}
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+            <div className="mb-8">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Trend 6 Bulan Terakhir</h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Pola kehadiran historis sistem</p>
             </div>
-            <span className="text-green-600 text-sm font-medium">Real-time</span>
-          </div>
-          <p className="text-gray-600 text-sm">Overall Attendance Rate</p>
-          <p className="text-4xl font-bold mt-2">{overallStats.attendanceRate}%</p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-orange-100 p-4 rounded-xl">
-              <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <span className="text-orange-600 text-sm font-medium">Monthly Avg</span>
-          </div>
-          <p className="text-gray-600 text-sm">Average Late Arrivals</p>
-          <p className="text-4xl font-bold mt-2">{overallStats.lateRate}%</p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="bg-red-100 p-4 rounded-xl">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <span className="text-red-600 text-sm font-medium">Today</span>
-          </div>
-          <p className="text-gray-600 text-sm">Absence Rate</p>
-          <p className="text-4xl font-bold mt-2">{overallStats.absenceRate}%</p>
-        </div>
-      </div>
-
-      {error && <div className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-center font-bold">{error}</div>}
-
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* 6-Month Trend */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h3 className="text-lg font-semibold mb-2">6-Month Attendance Trend</h3>
-          <p className="text-gray-500 text-sm mb-6">Historical attendance patterns and trends</p>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sixMonthTrend}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Line type="monotone" dataKey="present" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="late" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="absent" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center gap-6 mt-4 text-xs font-bold uppercase tracking-wider">
-            <div className="flex items-center"><div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>Present</div>
-            <div className="flex items-center"><div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>Late</div>
-            <div className="flex items-center"><div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>Absent</div>
-          </div>
-        </div>
-
-        {/* Weekly Trend + Today's Distribution */}
-        <div className="space-y-8">
-          <div className="bg-white rounded-2xl shadow p-6">
-            <h3 className="text-lg font-semibold mb-2">Weekly Attendance Trend</h3>
-            <p className="text-gray-500 text-sm mb-6">Daily breakdown for the current week</p>
-            <div className="h-[250px]" ref={barChartRef}>
+            <div className="h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none' }} />
-                  <Bar dataKey="present" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="late" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="absent" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <LineChart data={sixMonthTrend}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }} />
+                  <Line type="monotone" dataKey="present" stroke="#10b981" strokeWidth={4} dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="late" stroke="#f59e0b" strokeWidth={4} dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="absent" stroke="#ef4444" strokeWidth={4} dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-8 mt-6">
+              <div className="flex items-center gap-2"><div className="w-2 h-2 bg-emerald-500 rounded-full"></div><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hadir</span></div>
+              <div className="flex items-center gap-2"><div className="w-2 h-2 bg-orange-500 rounded-full"></div><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Telat</span></div>
+              <div className="flex items-center gap-2"><div className="w-2 h-2 bg-rose-500 rounded-full"></div><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Absen</span></div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+              <div className="mb-6">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Aktivitas Mingguan</h3>
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Breakdown performa 7 hari terakhir</p>
+              </div>
+              <div className="h-[280px]" ref={barChartRef}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '20px', border: 'none', shadow: 'xl' }} />
+                    <Bar dataKey="present" fill="#10b981" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="late" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="absent" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+              <div className="mb-6">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Distribusi Hari Ini</h3>
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Status kehadiran real-time</p>
+              </div>
+              <div className="flex flex-col md:flex-row items-center justify-around gap-8" ref={pieChartRef}>
+                <div className="w-[180px] h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={todayDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" stroke="none">
+                        {todayDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-1 gap-5">
+                  {todayDistribution.map((item) => (
+                    <div key={item.name} className="flex items-center gap-4">
+                      <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: item.color }}></div>
+                      <div>
+                        <p className="text-2xl font-black text-slate-900 leading-none">{item.value}</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{item.name}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+            <div className="mb-8">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Komparasi Penempatan</h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Efektivitas presensi berdasarkan lokasi (%)</p>
+            </div>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={departmentStats} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" domain={[0, 100]} hide />
+                  <YAxis dataKey="dept" type="category" width={120} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '20px', border: 'none' }} />
+                  <Bar dataKey="present" fill="#10b981" radius={[0, 10, 10, 0]} barSize={25} />
+                  <Bar dataKey="late" fill="#f59e0b" radius={[0, 10, 10, 0]} barSize={25} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow p-6">
-            <h3 className="text-lg font-semibold mb-2">Today's Distribution</h3>
-            <p className="text-gray-500 text-sm mb-6">Current attendance status</p>
-            <div className="flex flex-col md:flex-row items-center justify-around" ref={pieChartRef}>
-              <div className="w-[180px] h-[180px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={todayDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value">
-                      {todayDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+            <div className="mb-8">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Analisa Waktu Kedatangan</h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Distribusi jam masuk karyawan hari ini</p>
+            </div>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={timeDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip contentStyle={{ borderRadius: '24px', border: 'none' }} />
+                  <Line type="stepAfter" dataKey="checkins" stroke="#3b82f6" strokeWidth={5} dot={{ fill: "#3b82f6", r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Report Summary Card */}
+        <div className="bg-slate-900 rounded-[3rem] p-12 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/20 rounded-full -mr-48 -mt-48 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-600/10 rounded-full -ml-48 -mb-48 blur-3xl"></div>
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+            <div className="max-w-md">
+              <h3 className="text-3xl font-black text-white tracking-tight mb-4">Ringkasan Eksekutif</h3>
+              <p className="text-slate-400 font-bold text-sm leading-relaxed">
+                Berdasarkan data analitik sistem, hari ini menunjukkan performa kehadiran sebesar <span className="text-emerald-400">{overallStats.attendanceRate}%</span>.
+                Optimalkan manajemen waktu pada lokasi dengan tingkat keterlambatan tinggi.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-12 flex-1 w-full">
+              <div className="text-center">
+                <p className="text-4xl font-black text-white tracking-tighter">{overallStats.attendanceRate}%</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Avg Attendance</p>
               </div>
-              <div className="grid grid-cols-3 md:grid-cols-1 gap-4 mt-6 md:mt-0 text-center md:text-left">
-                {todayDistribution.map((item) => (
-                  <div key={item.name}>
-                    <p className="text-2xl font-bold" style={{ color: item.color }}>{item.value}</p>
-                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">{item.name}</p>
-                  </div>
-                ))}
+              <div className="text-center">
+                <p className="text-4xl font-black text-emerald-400 tracking-tighter">{overallStats.totalPresent}</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Total Present</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-black text-orange-400 tracking-tighter">{overallStats.lateRate}%</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Late Rate</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-black text-rose-500 tracking-tighter">{overallStats.absenceRate}%</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Absence Rate</p>
               </div>
             </div>
           </div>
         </div>
+
+        <Notification
+          show={notification.show}
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification({ ...notification, show: false })}
+        />
       </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h3 className="text-lg font-semibold mb-2">Department Comparison</h3>
-          <p className="text-gray-500 text-sm mb-6">Attendance rates by department (%)</p>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={departmentStats} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eee" />
-                <XAxis type="number" domain={[0, 100]} hide />
-                <YAxis dataKey="dept" type="category" width={100} axisLine={false} tickLine={false} />
-                <Tooltip cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="present" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
-                <Bar dataKey="late" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h3 className="text-lg font-semibold mb-2">Check-in Time Analysis</h3>
-          <p className="text-gray-500 text-sm mb-6">Today's distribution of arrival times</p>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={timeDistribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                <XAxis dataKey="time" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Line type="stepAfter" dataKey="checkins" stroke="#3b82f6" strokeWidth={3} dot={{ fill: "#3b82f6", r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Report Summary */}
-      <div className="bg-white rounded-2xl shadow p-6 mb-8">
-        <h3 className="text-lg font-semibold mb-4">Report Summary</h3>
-        <p className="text-gray-600 mb-6">Key insights for today</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <div>
-            <p className="text-3xl md:text-4xl font-black text-blue-600">{overallStats.attendanceRate}%</p>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-2">Avg Attendance</p>
-          </div>
-          <div>
-            <p className="text-3xl md:text-4xl font-black text-green-600">{overallStats.totalPresent}</p>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-2">Total Present</p>
-          </div>
-          <div>
-            <p className="text-3xl md:text-4xl font-black text-orange-600">{overallStats.lateRate}%</p>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-2">Late Rate</p>
-          </div>
-          <div>
-            <p className="text-3xl md:text-4xl font-black text-red-600">{overallStats.absenceRate}%</p>
-            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-2">Absence Rate</p>
-          </div>
-        </div>
-      </div>
-
-      <Notification
-        show={notification.show}
-        message={notification.message}
-        type={notification.type}
-        onClose={() => setNotification({ ...notification, show: false })}
-      />
     </AdminLayout>
   );
 }
