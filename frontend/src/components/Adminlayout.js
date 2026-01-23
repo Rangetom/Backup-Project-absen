@@ -37,7 +37,7 @@ export default function AdminLayout({ children }) {
       icon: <LayoutDashboard className="w-5 h-5 mr-3" />
     },
     {
-      href: "/attendance-report",
+      href: "/kehadiran",
       label: "Laporan Absensi",
       icon: <FileText className="w-5 h-5 mr-3" />
     },
@@ -99,20 +99,6 @@ export default function AdminLayout({ children }) {
                     </div>
                     <p className="font-black text-slate-900 text-center">{user?.name}</p>
                     <p className="text-xs text-slate-400 font-medium text-center mt-1">{user?.email}</p>
-                  </div>
-                  <div className="py-3 px-3">
-                    <button className="w-full flex items-center px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors text-sm font-bold group">
-                      <div className="p-2 bg-slate-100 rounded-lg mr-3 group-hover:bg-white transition-colors">
-                        <User className="w-4 h-4" />
-                      </div>
-                      Pengaturan Profil
-                    </button>
-                    <button className="w-full flex items-center px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors text-sm font-bold group">
-                      <div className="p-2 bg-slate-100 rounded-lg mr-3 group-hover:bg-white transition-colors">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      Ganti Password
-                    </button>
                   </div>
                   <div className="p-3 bg-slate-50">
                     <button

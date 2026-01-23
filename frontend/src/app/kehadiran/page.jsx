@@ -43,7 +43,7 @@ export default function AttendanceReportPage() {
 
   const fetchDetailedAttendance = async () => {
     try {
-      const res = await api.get("/attendances?period=month");
+      const res = await api.get("/attendances");
       // Filter out weekends (0 = Sunday, 6 = Saturday)
       const filteredData = res.data.filter(emp => {
         const day = new Date(emp.date).getDay();
@@ -108,10 +108,11 @@ export default function AttendanceReportPage() {
         { width: 8 },  // D: Gap
         { width: 10 }, // E: NO
         { width: 35 }, // F: NAMA
-        { width: 25 }, // G: KANTOR
-        { width: 15 }, // H: STATUS
-        { width: 18 }, // I: JAM
-        { width: 18 }  // J: TANGGAL
+        { width: 15 }, // G: ROLE
+        { width: 25 }, // H: KANTOR
+        { width: 15 }, // I: STATUS
+        { width: 18 }, // J: JAM
+        { width: 18 }  // K: TANGGAL
       ];
 
       // --- BRANDING HEADER ---
@@ -157,52 +158,86 @@ export default function AttendanceReportPage() {
       drawMetric(14, "ABSENCE RATE", `${reportData.overallStats.absenceRate}%`, 'FFFEE2E2', 'FF991B1B');
       drawMetric(18, "TOTAL RECORDS", details.length, 'FFF8FAFC', 'FF334155');
 
-      // --- DATA TABLE ---
-      const tableHeaderRow = 6;
-      const headers = ["NO", "NAMA KARYAWAN", "PENEMPATAN KANTOR", "STATUS", "WAKTU", "TANGGAL"];
-      headers.forEach((h, i) => {
-        const cell = worksheet.getCell(tableHeaderRow, 5 + i);
-        cell.value = h;
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = { bottom: { style: 'medium', color: { argb: 'FF3B82F6' } } };
-      });
+      setNotification({ show: true, message: "Menyusun lembar kerja bulanan...", type: "info" });
 
-      details.forEach((emp, idx) => {
-        const rowIdx = tableHeaderRow + 1 + idx;
-        const rowData = [
-          idx + 1,
-          emp.user.name,
-          emp.user.company || "Global",
-          emp.status,
-          emp.check_in_time || "--:--",
-          emp.date
+      // Group by Month-Year
+      const groupedByMonth = details.reduce((acc, emp) => {
+        const dateObj = new Date(emp.date);
+        const monthYear = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        if (!acc[monthYear]) acc[monthYear] = [];
+        acc[monthYear].push(emp);
+        return acc;
+      }, {});
+
+      // Add Monthly Sheets
+      Object.entries(groupedByMonth).forEach(([monthYear, monthDetails]) => {
+        const monthSheet = workbook.addWorksheet(monthYear);
+
+        // Column definitions for monthly sheet
+        monthSheet.columns = [
+          { width: 8 },  // A: NO
+          { width: 35 }, // B: NAMA
+          { width: 15 }, // C: ROLE
+          { width: 25 }, // D: KANTOR
+          { width: 15 }, // E: STATUS
+          { width: 18 }, // F: JAM
+          { width: 18 }  // G: TANGGAL
         ];
 
-        rowData.forEach((val, i) => {
-          const cell = worksheet.getCell(rowIdx, 5 + i);
-          cell.value = val;
-          cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
-          cell.font = { size: 10, color: { argb: 'FF334155' } };
+        // --- HEADER ---
+        monthSheet.mergeCells('A1:G2');
+        const monthTitle = monthSheet.getCell('A1');
+        monthTitle.value = `LAPORAN KEHADIRAN - ${monthYear.toUpperCase()}`;
+        monthTitle.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+        monthTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+        monthTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
 
-          // Striping
-          if (idx % 2 === 1) {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
-          }
+        // --- TABLE HEADERS ---
+        const headers = ["NO", "NAMA KARYAWAN", "ROLE", "PENEMPATAN KANTOR", "STATUS", "WAKTU", "TANGGAL"];
+        headers.forEach((h, i) => {
+          const cell = monthSheet.getCell(3, i + 1);
+          cell.value = h;
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = { bottom: { style: 'medium', color: { argb: 'FF3B82F6' } } };
+        });
 
-          cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
+        // --- DATA ---
+        monthDetails.forEach((emp, idx) => {
+          const rowIdx = 4 + idx;
+          const rowData = [
+            idx + 1,
+            emp.user.name,
+            emp.user.role || "Karyawan",
+            emp.user.company || "Global",
+            emp.status,
+            emp.check_in_time || "--:--",
+            emp.date
+          ];
 
-          // Status Coloring
-          if (i === 3) {
-            if (val === 'HADIR') cell.font = { bold: true, color: { argb: 'FF059669' } };
-            if (val === 'TELAT') cell.font = { bold: true, color: { argb: 'FFD97706' } };
-          }
+          rowData.forEach((val, i) => {
+            const cell = monthSheet.getCell(rowIdx, i + 1);
+            cell.value = val;
+            cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
+            cell.font = { size: 10, color: { argb: 'FF334155' } };
+
+            if (idx % 2 === 1) {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+            }
+
+            cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
+
+            if (i === 4) {
+              if (val === 'HADIR') cell.font = { bold: true, color: { argb: 'FF059669' } };
+              if (val === 'TELAT') cell.font = { bold: true, color: { argb: 'FFD97706' } };
+            }
+          });
         });
       });
 
       // --- VISUAL ANALYTICS SECTION ---
-      const chartStartRow = Math.max(22, tableHeaderRow + details.length + 3);
+      const chartStartRow = 22;
 
       worksheet.mergeCells(`B${chartStartRow}:J${chartStartRow}`);
       const vizTitle = worksheet.getCell(`B${chartStartRow}`);
@@ -245,7 +280,7 @@ export default function AttendanceReportPage() {
       setLoading(false);
     } catch (err) {
       console.error("Export failed:", err);
-      setNotification({ show: true, message: "Gagal memproses laporan.", type: "error" });
+      setNotification({ show: true, message: "sedang memproses laporan.", type: "progress" });
       setLoading(false);
     }
   };

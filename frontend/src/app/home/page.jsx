@@ -8,7 +8,7 @@ import Notification from "@/components/Notification";
 import * as faceapi from "@vladmandic/face-api";
 
 export default function EmployeeHome() {
-  useAuthMiddleware();
+   useAuthMiddleware();
   const { logout, user } = useAuth();
 
   const [isCapturing, setIsCapturing] = useState(false);

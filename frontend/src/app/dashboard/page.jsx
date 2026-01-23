@@ -38,6 +38,7 @@ export default function DashboardPage() {
     search: "",
     companyId: "",
     status: "",
+    role: "", // Add role filter
     period: "today", // Default to today
   });
 
@@ -48,6 +49,7 @@ export default function DashboardPage() {
       if (appliedFilters.search) params.append("search", appliedFilters.search);
       if (appliedFilters.companyId) params.append("company_id", appliedFilters.companyId);
       if (appliedFilters.status) params.append("status", appliedFilters.status);
+      if (appliedFilters.role) params.append("role", appliedFilters.role);
       if (appliedFilters.period) params.append("period", appliedFilters.period);
 
       const res = await api.get(`/attendances?${params.toString()}`);
@@ -166,6 +168,19 @@ export default function DashboardPage() {
               </select>
             </div>
             <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Role</label>
+              <select
+                name="role"
+                value={filters.role}
+                onChange={handleFilterChange}
+                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 transition appearance-none"
+              >
+                <option value="">Semua Role</option>
+                <option value="karyawan">Karyawan</option>
+                <option value="magang">Magang</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Perusahaan</label>
               <select
                 name="companyId"
@@ -239,6 +254,7 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="bg-slate-50/50">
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Informasi Karyawan</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Role</th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Penempatan</th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Waktu Log</th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Status</th>
@@ -258,6 +274,11 @@ export default function DashboardPage() {
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{emp.user.email}</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-8 py-6 text-center">
+                        <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${emp.user.role === 'admin' ? 'bg-purple-50 text-purple-600 border-purple-100' : emp.user.role === 'magang' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                          {emp.user.role}
+                        </span>
                       </td>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-2">
@@ -360,8 +381,9 @@ export default function DashboardPage() {
                     <div>
                       <h4 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">{selectedAttendance.user.name}</h4>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{selectedAttendance.user.email}</p>
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">Penempatan: {selectedAttendance.user.company}</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${selectedAttendance.user.role === 'magang' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>Role: {selectedAttendance.user.role}</span>
                       </div>
                     </div>
                   </div>

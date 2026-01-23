@@ -31,6 +31,13 @@ class AttendanceController extends Controller
                 $query->where('status', $request->status);
             }
 
+            // Filter Role
+            if ($request->has('role') && $request->role != '') {
+                $query->whereHas('user', function($q) use ($request) {
+                    $q->where('role', $request->role);
+                });
+            }
+
             // Filter Period
             if ($request->has('period')) {
                 if ($request->period == 'today') {
@@ -54,6 +61,7 @@ class AttendanceController extends Controller
                     'user' => [
                         'name' => $attendance->user->name,
                         'email' => $attendance->user->email,
+                        'role' => $attendance->user->role,
                         'code' => $attendance->user->employee_code ?? 'EMP' . str_pad($attendance->user->id, 3, '0', STR_PAD_LEFT),
                         'company' => $attendance->user->company ? $attendance->user->company->name : 'N/A',
                     ],

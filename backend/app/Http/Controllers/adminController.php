@@ -29,7 +29,7 @@ class adminController extends Controller
             'name' => 'required',
             'email' => 'required|email|unique:users',
             'password' => 'required',
-            'role' => 'required|in:karyawan,admin',
+            'role' => 'required|in:karyawan,admin,magang',
             'company_id' => 'nullable|exists:companies,id'
         ]);
 
@@ -53,7 +53,7 @@ class adminController extends Controller
             'email' => $request->email && $request->email !== $user->email 
                 ? 'required|email|unique:users' 
                 : 'required|email',
-            'role' => 'required|in:karyawan,admin'
+            'role' => 'required|in:karyawan,admin,magang'
         ]);
 
         $updateData = [

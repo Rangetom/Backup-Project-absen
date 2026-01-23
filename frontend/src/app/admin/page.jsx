@@ -1,7 +1,7 @@
 // src/app/admin/page.jsx
 'use client';
 import AdminLayout from '@/components/Adminlayout';
-import { UserPlus, Mail, Lock, User, Building2, X, UserCog } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Building2, X, UserCog, Search, Filter } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
@@ -84,6 +84,10 @@ export default function AddUserForm() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
 
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+
   const fetchUsers = async () => {
     try {
       const data = await getAllUsers();
@@ -103,8 +107,10 @@ export default function AddUserForm() {
   };
 
   useEffect(() => {
-    fetchUsers();
-    fetchCompanies(); // Fetch companies on mount
+    const fetchInitialData = async () => {
+      await Promise.all([fetchUsers(), fetchCompanies()]);
+    };
+    fetchInitialData();
   }, []);
 
 
@@ -172,6 +178,15 @@ export default function AddUserForm() {
     }
   };
 
+  // Filter Logic
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "all" || u.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
   return (
     <AdminLayout>
       <Notification
@@ -221,13 +236,45 @@ export default function AddUserForm() {
           </div>
         </div>
 
+        {/* Search & Filter Bar */}
+        <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-[2rem] shadow-sm border border-slate-50">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+            <input
+              type="text"
+              placeholder="Cari nama atau email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold text-sm text-slate-900 placeholder:text-slate-300"
+            />
+          </div>
+          <div className="relative min-w-[200px] group">
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold text-sm text-slate-900 appearance-none cursor-pointer"
+            >
+              <option value="all">Semua Role</option>
+              <option value="admin">Admin</option>
+              <option value="karyawan">Karyawan</option>
+              <option value="magang">Magang</option>
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
         {/* Improved Users Table Card */}
         <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 overflow-hidden relative">
           <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
             <h3 className="text-lg font-black text-slate-900 tracking-tight">Daftar Karyawan</h3>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total: {users.length} USER</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total: {filteredUsers.length} USER</span>
             </div>
           </div>
           <div className="overflow-x-auto custom-scrollbar">
@@ -241,7 +288,7 @@ export default function AddUserForm() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
@@ -255,7 +302,7 @@ export default function AddUserForm() {
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                      <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : u.role === 'magang' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
                         }`}>
                         {u.role}
                       </span>
@@ -294,12 +341,14 @@ export default function AddUserForm() {
                     </td>
                   </tr>
                 ))}
-                {users.length === 0 && (
+                {filteredUsers.length === 0 && (
                   <tr>
                     <td colSpan="4" className="px-8 py-20 text-center">
                       <div className="flex flex-col items-center opacity-40">
                         <User className="w-16 h-16 text-slate-300 mb-4" />
-                        <p className="font-bold text-slate-500 uppercase tracking-widest text-xs">Belum ada data pengguna</p>
+                        <p className="font-bold text-slate-500 uppercase tracking-widest text-xs">
+                          {searchQuery || roleFilter !== "all" ? "Data tidak ditemukan" : "Belum ada data pengguna"}
+                        </p>
                       </div>
                     </td>
                   </tr>
@@ -310,9 +359,8 @@ export default function AddUserForm() {
         </div>
       </div>
 
-      {/* Improved Modal Form */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-60 p-4">
           <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
             {/* Header */}
             <div className="bg-blue-600 p-8 relative overflow-hidden">
@@ -400,6 +448,7 @@ export default function AddUserForm() {
                       onChange={handleChange}
                     >
                       <option value="karyawan">Karyawan</option>
+                      <option value="magang">Magang</option>
                       <option value="admin">Administrator</option>
                     </select>
                   </div>
@@ -436,7 +485,7 @@ export default function AddUserForm() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-blue-200 transition active:scale-95"
+                  className="flex-2 py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-blue-200 transition active:scale-95"
                 >
                   {editId ? "Simpan Perubahan" : "Daftarkan User"}
                 </button>

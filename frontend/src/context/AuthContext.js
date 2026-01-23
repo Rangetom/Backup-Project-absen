@@ -48,6 +48,8 @@ export const AuthProvider = ({ children }) => {
 
     if (response.data.user.role === "admin") {
       router.push("/dashboard");
+    } else if (response.data.user.role === "magang" || response.data.user.role === "karyawan") {
+      router.push("/home");
     } else {
       router.push("/home");
     }
