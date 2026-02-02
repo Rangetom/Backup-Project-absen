@@ -1,1271 +1,558 @@
-// dashboard
-// "use client";
-
-// import React, { useState, useEffect } from "react";
-// import { useAuth } from "@/context/AuthContext";
-// import useAuthMiddleware from "@/hooks/auth";
-// import Link from "next/link";
-// import api from "@/utils/axios";
-
-// export default function DashboardPage() {
-//   useAuthMiddleware();
-//   const { logout } = useAuth();
-
-//   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-//   const [recentAttendance, setRecentAttendance] = useState([]);
-//   const [selectedAttendance, setSelectedAttendance] = useState(null);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState(null);
-//   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-//   useEffect(() => {
-//     const fetchData = async () => {
-//       try {
-//         const res = await api.get("/attendances");
-//         setRecentAttendance(res.data);
-//       } catch {
-//         setError("Gagal memuat data absensi");
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-//     fetchData();
-//   }, []);
-
-//   return (
-//     <div className="min-h-screen bg-gray-100">
-//       {/* HEADER */}
-//       <header className="bg-white shadow fixed top-0 left-0 right-0 z-40">
-//         <div className="flex items-center justify-between px-4 md:px-6 py-4">
-//           <div className="flex items-center gap-3">
-//             {/* HAMBURGER */}
-//             <button
-//               className="md:hidden"
-//               onClick={() => setSidebarOpen(!sidebarOpen)}
-//             >
-//               ☰
-//             </button>
-//             <h1 className="text-xl font-bold">AttendTrack</h1>
-//           </div>
-
-//           <div className="flex items-center gap-4">
-//             <input
-//               className="hidden md:block px-4 py-2 border rounded-lg"
-//               placeholder="Search..."
-//             />
-
-//             <div className="relative">
-//               <button
-//                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-//                 className="bg-blue-600 text-white w-10 h-10 rounded-full font-bold"
-//               >
-//                 AH
-//               </button>
-
-//               {showProfileDropdown && (
-//                 <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-lg border">
-//                   <div className="p-4 border-b">
-//                     <p className="font-semibold">Admin HR</p>
-//                     <p className="text-sm text-gray-500">admin@company.com</p>
-//                   </div>
-//                   <button
-//                     onClick={logout}
-//                     className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50"
-//                   >
-//                     Logout
-//                   </button>
-//                 </div>
-//               )}
-//             </div>
-//           </div>
-//         </div>
-//       </header>
-
-//       {/* SIDEBAR */}
-//       <aside
-//         className={`fixed top-16 left-0 h-full w-64 bg-white shadow z-30 transform transition-transform
-//         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
-//       >
-//         {["Dashboard", "Employees", "Attendance Reports", "Settings"].map(
-//           (item) => (
-//             <Link
-//               key={item}
-//               href="#"
-//               className="block px-6 py-4 hover:bg-gray-100"
-//               onClick={() => setSidebarOpen(false)}
-//             >
-//               {item}
-//             </Link>
-//           )
-//         )}
-//       </aside>
-
-//       {/* CONTENT */}
-//       <main className="pt-24 md:ml-64 px-4 md:px-8 pb-10">
-//         <div className="bg-white rounded-xl shadow p-6">
-//           <h2 className="text-lg font-semibold mb-4">Recent Attendance</h2>
-
-//           {loading && <p>Memuat...</p>}
-//           {error && <p className="text-red-600">{error}</p>}
-
-//           {/* DESKTOP TABLE */}
-//           <div className="hidden md:block">
-//             {recentAttendance.map((emp) => (
-//               <div
-//                 key={emp.id}
-//                 className="grid grid-cols-12 py-4 border-b items-center"
-//               >
-//                 <div className="col-span-4">
-//                   <p className="font-medium">{emp.user.name}</p>
-//                   <p className="text-sm text-gray-500">{emp.user.code}</p>
-//                 </div>
-//                 <div className="col-span-2 text-center">
-//                   {emp.check_in_time}
-//                 </div>
-//                 <div className="col-span-2 text-center">
-//                   <span
-//                     className={`px-3 py-1 rounded-full text-sm ${
-//                       emp.status === "HADIR"
-//                         ? "bg-green-100 text-green-700"
-//                         : "bg-orange-100 text-orange-700"
-//                     }`}
-//                   >
-//                     {emp.status}
-//                   </span>
-//                 </div>
-//                 <div className="col-span-3 text-center">
-//                   {emp.location}
-//                 </div>
-//                 <div className="col-span-1 text-center">
-//                   <button
-//                     onClick={() => setSelectedAttendance(emp)}
-//                     className="text-blue-600"
-//                   >
-//                     View
-//                   </button>
-//                 </div>
-//               </div>
-//             ))}
-//           </div>
-
-//           {/* MOBILE CARD */}
-//           <div className="md:hidden space-y-4">
-//             {recentAttendance.map((emp) => (
-//               <div
-//                 key={emp.id}
-//                 className="border rounded-xl p-4 shadow-sm"
-//               >
-//                 <p className="font-semibold">{emp.user.name}</p>
-//                 <p className="text-sm text-gray-500">{emp.user.email}</p>
-//                 <p className="mt-2 text-sm">
-//                   ⏰ {emp.check_in_time}
-//                 </p>
-//                 <p className="text-sm">📍 {emp.location}</p>
-
-//                 <button
-//                   onClick={() => setSelectedAttendance(emp)}
-//                   className="mt-3 text-blue-600 font-medium"
-//                 >
-//                   View Photo
-//                 </button>
-//               </div>
-//             ))}
-//           </div>
-//         </div>
-//       </main>
-
-//       {/* MODAL FOTO */}
-//       {selectedAttendance && (
-//         <div
-//           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-//           onClick={() => setSelectedAttendance(null)}
-//         >
-//           <div
-//             className="bg-white rounded-xl p-4 max-w-lg w-full"
-//             onClick={(e) => e.stopPropagation()}
-//           >
-//             <h3 className="font-semibold mb-2">
-//               {selectedAttendance.user.name}
-//             </h3>
-//             <img
-//               src={selectedAttendance.photo_url}
-//               className="w-full rounded-lg"
-//             />
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
-
-// home
-// "use client";
-
-// import { useState, useRef } from "react";
-// import useAuthMiddleware from "@/hooks/auth";
-// import { useAuth } from "@/context/AuthContext";
-
-// export default function EmployeeHome() {
-//   useAuthMiddleware();
-//   const { logout } = useAuth();
-
-//   const [isCapturing, setIsCapturing] = useState(false);
-//   const [capturedImage, setCapturedImage] = useState(null);
-//   const [location, setLocation] = useState(null);
-//   const [address, setAddress] = useState(null);
-
-//   const videoRef = useRef(null);
-//   const canvasRef = useRef(null);
-//   const streamRef = useRef(null);
-
-//   // ===== LOCATION =====
-//   const getLocation = async () => {
-//     navigator.geolocation.getCurrentPosition(
-//       async (pos) => {
-//         const lat = pos.coords.latitude;
-//         const lng = pos.coords.longitude;
-//         setLocation({ latitude: lat, longitude: lng });
-
-//         try {
-//           const res = await fetch(
-//             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-//           );
-//           const data = await res.json();
-//           setAddress(data.display_name || "Lokasi tidak diketahui");
-//         } catch {
-//           setAddress("Lokasi tidak diketahui");
-//         }
-//       },
-//       () => alert("Izin lokasi ditolak"),
-//       { enableHighAccuracy: true }
-//     );
-//   };
-
-//   // ===== START CAMERA =====
-//   const startSelfie = async () => {
-//     setIsCapturing(true);
-//     setCapturedImage(null);
-//     await getLocation();
-
-//     const stream = await navigator.mediaDevices.getUserMedia({
-//       video: { facingMode: "user" },
-//       audio: false,
-//     });
-
-//     videoRef.current.srcObject = stream;
-//     streamRef.current = stream;
-//   };
-
-//   // ===== WRAP TEXT =====
-//   const wrapText = (ctx, text, x, y, maxWidth, lineHeight) => {
-//     const words = text.split(" ");
-//     let line = "";
-//     let currentY = y;
-
-//     for (let i = 0; i < words.length; i++) {
-//       const testLine = line + words[i] + " ";
-//       if (ctx.measureText(testLine).width > maxWidth && i > 0) {
-//         ctx.strokeText(line, x, currentY);
-//         ctx.fillText(line, x, currentY);
-//         line = words[i] + " ";
-//         currentY += lineHeight;
-//       } else {
-//         line = testLine;
-//       }
-//     }
-//     ctx.strokeText(line, x, currentY);
-//     ctx.fillText(line, x, currentY);
-//   };
-
-//   // ===== TAKE PHOTO =====
-//   const takePhoto = () => {
-//     if (!location || !address) {
-//       alert("Lokasi belum siap");
-//       return;
-//     }
-
-//     const video = videoRef.current;
-//     const canvas = canvasRef.current;
-
-//     canvas.width = video.videoWidth;
-//     canvas.height = video.videoHeight;
-
-//     const ctx = canvas.getContext("2d");
-//     ctx.drawImage(video, 0, 0);
-
-//     const now = new Date();
-//     const tanggal = now.toLocaleDateString("id-ID");
-//     const jam = now.toLocaleTimeString("id-ID");
-
-//     ctx.font = "bold 18px Arial";
-//     ctx.fillStyle = "white";
-//     ctx.strokeStyle = "black";
-//     ctx.lineWidth = 2;
-
-//     let y = canvas.height - 90;
-//     ctx.strokeText(`Tanggal: ${tanggal}`, 10, y);
-//     ctx.fillText(`Tanggal: ${tanggal}`, 10, y);
-//     y += 24;
-
-//     ctx.strokeText(`Jam: ${jam}`, 10, y);
-//     ctx.fillText(`Jam: ${jam}`, 10, y);
-//     y += 24;
-
-//     wrapText(ctx, address, 10, y, canvas.width - 20, 22);
-
-//     setCapturedImage(canvas.toDataURL("image/jpeg", 0.9));
-//   };
-
-//   // ===== CLOSE CAMERA =====
-//   const closeSelfie = () => {
-//     streamRef.current?.getTracks().forEach((t) => t.stop());
-//     setIsCapturing(false);
-//     setCapturedImage(null);
-//     setAddress(null);
-//   };
-
-//   // ===== SUBMIT =====
-//   const submitCheckIn = async () => {
-//     if (!capturedImage || !location) {
-//       alert("Data belum lengkap");
-//       return;
-//     }
-
-//     try {
-//       const token = localStorage.getItem("auth_token");
-
-//       const res = await fetch("http://127.0.0.1:8000/api/attendance/checkin", {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//           Authorization: `Bearer ${token}`,
-//         },
-//         body: JSON.stringify({
-//           photo: capturedImage,
-//           latitude: location.latitude,
-//           longitude: location.longitude,
-//         }),
-//       });
-
-//       const data = await res.json();
-//       if (!res.ok) return alert(data.message || "Gagal check-in");
-
-//       alert(data.message);
-//       closeSelfie();
-//     } catch {
-//       alert("Gagal mengirim data");
-//     }
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-gray-100">
-//       {/* HEADER */}
-//       <header className="bg-white shadow px-4 md:px-10 py-4 flex justify-between items-center">
-//         <h1 className="text-xl md:text-2xl font-bold">AttendTrack</h1>
-//         <button onClick={logout} className="text-red-600 font-medium">
-//           Logout
-//         </button>
-//       </header>
-
-//       {/* CONTENT */}
-//       <main className="p-4 md:p-10">
-//         <div className="bg-white p-6 md:p-10 rounded-2xl shadow text-center max-w-xl mx-auto">
-//           <h2 className="text-lg md:text-xl font-semibold mb-6">
-//             Check-In Selfie
-//           </h2>
-//           <button
-//             onClick={startSelfie}
-//             className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full w-full md:w-auto"
-//           >
-//             Start Check-In
-//           </button>
-//         </div>
-//       </main>
-
-//       {/* MODAL CAMERA */}
-//       {isCapturing && (
-//         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
-//           <div className="bg-white w-full h-full md:h-auto md:max-w-lg md:rounded-3xl overflow-hidden flex flex-col">
-//             <div className="bg-blue-600 text-white py-4 text-center font-bold">
-//               Ambil Selfie
-//             </div>
-
-//             <div className="flex-1 bg-black flex items-center justify-center p-4">
-//               {!capturedImage ? (
-//                 <video
-//                   ref={videoRef}
-//                   autoPlay
-//                   playsInline
-//                   className="w-full max-h-[70vh] object-contain rounded-xl"
-//                   style={{ transform: "scaleX(-1)" }}
-//                 />
-//               ) : (
-//                 <img
-//                   src={capturedImage}
-//                   className="w-full max-h-[70vh] object-contain rounded-xl"
-//                 />
-//               )}
-//               <canvas ref={canvasRef} className="hidden" />
-//             </div>
-
-//             <div className="p-4 flex flex-col sm:flex-row gap-4 justify-center">
-//               {!capturedImage ? (
-//                 <>
-//                   <button
-//                     onClick={takePhoto}
-//                     className="bg-blue-600 text-white py-3 px-6 rounded-full w-full"
-//                   >
-//                     Ambil Foto
-//                   </button>
-//                   <button
-//                     onClick={closeSelfie}
-//                     className="bg-gray-500 text-white py-3 px-6 rounded-full w-full"
-//                   >
-//                     Batal
-//                   </button>
-//                 </>
-//               ) : (
-//                 <>
-//                   <button
-//                     onClick={() => setCapturedImage(null)}
-//                     className="bg-orange-500 text-white py-3 px-6 rounded-full w-full"
-//                   >
-//                     Ulang
-//                   </button>
-//                   <button
-//                     onClick={submitCheckIn}
-//                     className="bg-green-600 text-white py-3 px-6 rounded-full w-full"
-//                   >
-//                     Kirim & Check-In
-//                   </button>
-//                 </>
-//               )}
-//             </div>
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
-
-// attendance check in
-// "use client";
-
-// import React, { useState } from "react";
-// import { useAuth } from "@/context/AuthContext";
-// import {
-//   BarChart,
-//   Bar,
-//   LineChart,
-//   Line,
-//   PieChart,
-//   Pie,
-//   Cell,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   Tooltip,
-//   ResponsiveContainer,
-// } from "recharts";
-
-// export default function AttendanceReportPage() {
-//   const { logout } = useAuth();
-
-//   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-//   const [showExportMenu, setShowExportMenu] = useState(false);
-//   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-//   const handleLogout = async () => {
-//     await logout();
-//   };
-
-//   const handleExport = (format) => {
-//     alert(`Export ${format} sedang dikembangkan`);
-//     setShowExportMenu(false);
-//   };
-
-//   // ===== DATA =====
-//   const sixMonthData = [
-//     { month: "Jan", present: 650, late: 30, absent: 20 },
-//     { month: "Feb", present: 660, late: 28, absent: 22 },
-//     { month: "Mar", present: 670, late: 25, absent: 25 },
-//     { month: "Apr", present: 680, late: 22, absent: 18 },
-//     { month: "May", present: 690, late: 20, absent: 10 },
-//     { month: "Jun", present: 700, late: 18, absent: 12 },
-//   ];
-
-//   const weeklyData = [
-//     { day: "Mon", present: 52, late: 8, absent: 5 },
-//     { day: "Tue", present: 48, late: 10, absent: 7 },
-//     { day: "Wed", present: 50, late: 9, absent: 6 },
-//     { day: "Thu", present: 55, late: 7, absent: 3 },
-//     { day: "Fri", present: 45, late: 12, absent: 8 },
-//   ];
-
-//   const pieData = [
-//     { name: "Present", value: 60, color: "#10b981" },
-//     { name: "Late", value: 20, color: "#f59e0b" },
-//     { name: "Absent", value: 20, color: "#ef4444" },
-//   ];
-
-//   const departmentData = [
-//     { dept: "Engineering", present: 95, late: 4, absent: 1 },
-//     { dept: "Design", present: 92, late: 6, absent: 2 },
-//     { dept: "Marketing", present: 88, late: 8, absent: 4 },
-//     { dept: "Sales", present: 90, late: 7, absent: 3 },
-//     { dept: "HR", present: 96, late: 3, absent: 1 },
-//     { dept: "Finance", present: 94, late: 5, absent: 1 },
-//   ];
-
-//   const checkInTimeData = [
-//     { time: "7:00", checkins: 5 },
-//     { time: "7:30", checkins: 12 },
-//     { time: "8:00", checkins: 25 },
-//     { time: "8:30", checkins: 28 },
-//     { time: "9:00", checkins: 18 },
-//     { time: "9:30", checkins: 8 },
-//     { time: "10:00", checkins: 4 },
-//   ];
-
-//   return (
-//     <div className="min-h-screen bg-gray-50">
-//       {/* ================= HEADER ================= */}
-//       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b shadow-sm">
-//         <div className="flex items-center justify-between px-4 md:px-6 py-4">
-//           <div className="flex items-center gap-3">
-//             {/* Hamburger */}
-//             <button
-//               className="md:hidden p-2 rounded-lg hover:bg-gray-100"
-//               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-//             >
-//               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-//               </svg>
-//             </button>
-
-//             <div className="bg-blue-600 p-2 rounded-lg">
-//               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" />
-//               </svg>
-//             </div>
-//             <h1 className="text-xl md:text-2xl font-bold">AttendTrack</h1>
-//           </div>
-
-//           <div className="flex items-center gap-4">
-//             {/* Export */}
-//             <div className="relative">
-//               <button
-//                 onClick={() => setShowExportMenu(!showExportMenu)}
-//                 className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm md:text-base"
-//               >
-//                 Export
-//               </button>
-
-//               {showExportMenu && (
-//                 <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow border">
-//                   <button
-//                     onClick={() => handleExport("PDF")}
-//                     className="block w-full px-4 py-2 hover:bg-gray-50 text-left"
-//                   >
-//                     PDF
-//                   </button>
-//                   <button
-//                     onClick={() => handleExport("Excel")}
-//                     className="block w-full px-4 py-2 hover:bg-gray-50 text-left border-t"
-//                   >
-//                     Excel
-//                   </button>
-//                 </div>
-//               )}
-//             </div>
-
-//             {/* Profile */}
-//             <div className="relative">
-//               <button onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
-//                 <div className="w-9 h-9 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
-//                   AH
-//                 </div>
-//               </button>
-
-//               {showProfileDropdown && (
-//                 <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow border">
-//                   <div className="p-4 border-b">
-//                     <p className="font-semibold">Admin HR</p>
-//                     <p className="text-sm text-gray-500">admin@company.com</p>
-//                   </div>
-//                   <button
-//                     onClick={handleLogout}
-//                     className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50"
-//                   >
-//                     Logout
-//                   </button>
-//                 </div>
-//               )}
-//             </div>
-//           </div>
-//         </div>
-//       </header>
-
-//       {/* ================= LAYOUT ================= */}
-//       <div className="flex pt-16">
-//         {/* SIDEBAR */}
-//         <aside
-//           className={`fixed md:static z-40 top-16 left-0 h-screen w-64 bg-white shadow-md transform transition-transform duration-300
-//           ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
-//         >
-//           <nav className="mt-6">
-//             {["Dashboard", "Employees", "Attendance Reports", "Settings"].map((item) => (
-//               <button
-//                 key={item}
-//                 onClick={() => setIsSidebarOpen(false)}
-//                 className={`w-full text-left px-6 py-4 ${
-//                   item === "Attendance Reports"
-//                     ? "bg-blue-50 text-blue-600 border-r-4 border-blue-600"
-//                     : "text-gray-600 hover:bg-gray-50"
-//                 }`}
-//               >
-//                 {item}
-//               </button>
-//             ))}
-//           </nav>
-//         </aside>
-
-//         {/* MAIN */}
-//         <main className="flex-1 p-4 md:p-8 md:ml-64">
-//           <h2 className="text-2xl md:text-3xl font-bold mb-2">Attendance Report</h2>
-//           <p className="text-gray-600 mb-8">Analytics & visualization</p>
-
-//           {/* STATS */}
-//           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-//             {["94.2%", "5.2%", "2.8%"].map((v, i) => (
-//               <div key={i} className="bg-white rounded-2xl shadow p-6">
-//                 <p className="text-4xl font-bold">{v}</p>
-//               </div>
-//             ))}
-//           </div>
-
-//           {/* CHARTS */}
-//           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-//             <div className="bg-white rounded-2xl shadow p-6">
-//               <ResponsiveContainer width="100%" height={250}>
-//                 <LineChart data={sixMonthData}>
-//                   <CartesianGrid strokeDasharray="3 3" />
-//                   <XAxis dataKey="month" />
-//                   <YAxis />
-//                   <Tooltip />
-//                   <Line dataKey="present" stroke="#10b981" />
-//                   <Line dataKey="late" stroke="#f59e0b" />
-//                   <Line dataKey="absent" stroke="#ef4444" />
-//                 </LineChart>
-//               </ResponsiveContainer>
-//             </div>
-
-//             <div className="bg-white rounded-2xl shadow p-6">
-//               <ResponsiveContainer width="100%" height={250}>
-//                 <BarChart data={weeklyData}>
-//                   <CartesianGrid strokeDasharray="3 3" />
-//                   <XAxis dataKey="day" />
-//                   <YAxis />
-//                   <Tooltip />
-//                   <Bar dataKey="present" fill="#10b981" />
-//                   <Bar dataKey="late" fill="#f59e0b" />
-//                   <Bar dataKey="absent" fill="#ef4444" />
-//                 </BarChart>
-//               </ResponsiveContainer>
-//             </div>
-//           </div>
-
-//           {/* PIE */}
-//           <div className="bg-white rounded-2xl shadow p-6 mb-8">
-//             <ResponsiveContainer width="100%" height={250}>
-//               <PieChart>
-//                 <Pie data={pieData} dataKey="value" innerRadius={60} outerRadius={90}>
-//                   {pieData.map((e, i) => (
-//                     <Cell key={i} fill={e.color} />
-//                   ))}
-//                 </Pie>
-//                 <Tooltip />
-//               </PieChart>
-//             </ResponsiveContainer>
-//           </div>
-//         </main>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-// attendance setting 
-// "use client";
-
-// import { useEffect, useState } from "react";
-// import api from "@/utils/axios";
-// import AdminLayout from "@/components/Adminlayout";
-
-// export default function AttendanceSettingPage() {
-//   const [form, setForm] = useState({
-//     office_latitude: "",
-//     office_longitude: "",
-//     radius_km: "",
-//     start_time: "",
-//     late_time: "",
-//     end_time: "",
-//   });
-
-//   const normalizeTime = (t) => {
-//     if (!t) return "";
-//     let s = String(t).trim().replace(/\./g, ":");
-//     if (/^\d{1,2}:\d{2}$/.test(s)) s += ":00";
-//     return s;
-//   };
-
-//   useEffect(() => {
-//     api.get("/attendance-setting").then((res) => {
-//       if (res.data) {
-//         const data = res.data;
-//         setForm({
-//           ...data,
-//           start_time: normalizeTime(data.start_time),
-//           late_time: normalizeTime(data.late_time),
-//           end_time: normalizeTime(data.end_time),
-//         });
-//       }
-//     });
-//   }, []);
-
-//   const submit = async () => {
-//     try {
-//       const payload = {
-//         ...form,
-//         start_time: normalizeTime(form.start_time),
-//         late_time: normalizeTime(form.late_time),
-//         end_time: normalizeTime(form.end_time),
-//       };
-//       await api.post("/attendance-setting", payload);
-//       alert("Pengaturan berhasil disimpan");
-//     } catch {
-//       alert("Gagal menyimpan pengaturan");
-//     }
-//   };
-
-//   return (
-//     <AdminLayout>
-//       <div className="min-h-screen bg-gray-50 px-4 py-6 md:px-8">
-//         <div className="max-w-4xl mx-auto">
-//           {/* Header */}
-//           <div className="mb-6">
-//             <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-//               Pengaturan Absensi
-//             </h1>
-//             <p className="text-gray-500 mt-1 text-sm md:text-base">
-//               Atur lokasi kantor dan jam absensi karyawan
-//             </p>
-//           </div>
-
-//           {/* Card */}
-//           <div className="bg-white rounded-2xl shadow p-6 md:p-8">
-//             {/* Lokasi */}
-//             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-//               {[
-//                 ["Latitude Kantor", "office_latitude"],
-//                 ["Longitude Kantor", "office_longitude"],
-//                 ["Radius (KM)", "radius_km"],
-//               ].map(([label, key]) => (
-//                 <div key={key}>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     {label}
-//                   </label>
-//                   <input
-//                     type="text"
-//                     value={form[key]}
-//                     onChange={(e) =>
-//                       setForm({ ...form, [key]: e.target.value })
-//                     }
-//                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-//                     placeholder={label}
-//                   />
-//                 </div>
-//               ))}
-//             </div>
-
-//             {/* Waktu */}
-//             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-//               {[
-//                 ["Jam Buka", "start_time"],
-//                 ["Batas Hadir", "late_time"],
-//                 ["Jam Tutup", "end_time"],
-//               ].map(([label, key]) => (
-//                 <div key={key}>
-//                   <label className="block text-sm font-medium text-gray-700 mb-1">
-//                     {label}
-//                   </label>
-//                   <input
-//                     type="time"
-//                     value={form[key]}
-//                     onChange={(e) =>
-//                       setForm({ ...form, [key]: e.target.value })
-//                     }
-//                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-//                   />
-//                 </div>
-//               ))}
-//             </div>
-
-//             {/* Action */}
-//             <div className="flex flex-col sm:flex-row sm:justify-end gap-4">
-//               <button
-//                 onClick={submit}
-//                 className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition"
-//               >
-//                 Simpan Pengaturan
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-//     </AdminLayout>
-//   );
-// }
-
-
-// admin 
-// 'use client';
-// import AdminLayout from '@/components/Adminlayout';
-// import { UserPlus, Mail, Lock, User } from 'lucide-react';
-// import { useAuth } from '@/context/AuthContext';
-// import { useState, useEffect } from 'react';
-// import * as XLSX from 'xlsx';
-
-// export default function AddUserForm() {
-//   const { getAllUsers, createUser, updateUser, deleteUser } = useAuth();
-
-//   const [users, setUsers] = useState([]);
-//   const [form, setForm] = useState({
-//     name: '',
-//     email: '',
-//     password: '',
-//     role: 'karyawan',
-//   });
-//   const [editId, setEditId] = useState(null);
-
-//   /* ===================== FETCH ===================== */
-//   const fetchUsers = async () => {
-//     try {
-//       const data = await getAllUsers();
-//       setUsers(data);
-//     } catch (err) {
-//       console.error('Gagal fetch user:', err);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchUsers();
-//   }, []);
-
-//   /* ===================== EXCEL ===================== */
-//   const handleFileUpload = (e) => {
-//     const file = e.target.files[0];
-//     const reader = new FileReader();
-
-//     reader.onload = async (event) => {
-//       const workbook = XLSX.read(event.target.result, { type: 'binary' });
-//       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-//       const data = XLSX.utils.sheet_to_json(sheet);
-
-//       for (const row of data) {
-//         await createUser({
-//           name: row.nama || row.name || '',
-//           email: row.email || '',
-//           password: row.password || '',
-//           role: row.role || 'karyawan',
-//         });
-//       }
-
-//       fetchUsers();
-//       alert('Import Excel berhasil');
-//     };
-
-//     if (file) reader.readAsBinaryString(file);
-//   };
-
-//   /* ===================== FORM ===================== */
-//   const handleChange = (e) =>
-//     setForm({ ...form, [e.target.name]: e.target.value });
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     editId ? await updateUser(editId, form) : await createUser(form);
-//     setForm({ name: '', email: '', password: '', role: 'karyawan' });
-//     setEditId(null);
-//     fetchUsers();
-//   };
-
-//   const handleEdit = (u) => {
-//     setForm({ name: u.name, email: u.email, password: '', role: u.role });
-//     setEditId(u.id);
-//   };
-
-//   const handleDelete = async (id) => {
-//     await deleteUser(id);
-//     fetchUsers();
-//   };
-
-//   return (
-//     <AdminLayout>
-//       <div className="min-h-screen bg-gray-50 px-4 py-6 sm:px-6 lg:px-8">
-//         <div className="max-w-6xl mx-auto">
-
-//           {/* ===================== TITLE ===================== */}
-//           <div className="text-center mb-8">
-//             <h1 className="text-2xl sm:text-3xl font-bold">Manajemen Pengguna</h1>
-//             <p className="text-gray-600 text-sm">
-//               Tambah, edit, hapus pengguna & import Excel
-//             </p>
-//           </div>
-
-//           {/* ===================== FORM ===================== */}
-//           <div className="bg-white rounded-xl shadow p-6 mb-10">
-//             <div className="mb-6">
-//               <label className="text-sm font-medium">Import Excel</label>
-//               <input
-//                 type="file"
-//                 accept=".xlsx,.xls"
-//                 onChange={handleFileUpload}
-//                 className="mt-2 w-full text-sm"
-//               />
-//             </div>
-
-//             <form
-//               onSubmit={handleSubmit}
-//               className="grid grid-cols-1 md:grid-cols-2 gap-6"
-//             >
-//               {/* Nama */}
-//               <Input
-//                 icon={<User className="text-blue-500" />}
-//                 label="Nama"
-//                 name="name"
-//                 value={form.name}
-//                 onChange={handleChange}
-//               />
-
-//               {/* Email */}
-//               <Input
-//                 icon={<Mail className="text-green-500" />}
-//                 label="Email"
-//                 name="email"
-//                 type="email"
-//                 value={form.email}
-//                 onChange={handleChange}
-//               />
-
-//               {/* Password */}
-//               <Input
-//                 icon={<Lock className="text-teal-500" />}
-//                 label="Password"
-//                 name="password"
-//                 type="password"
-//                 value={form.password}
-//                 onChange={handleChange}
-//                 required={!editId}
-//               />
-
-//               {/* Role */}
-//               <div>
-//                 <label className="text-sm font-medium">Role</label>
-//                 <select
-//                   name="role"
-//                   value={form.role}
-//                   onChange={handleChange}
-//                   className="w-full mt-2 p-3 border rounded-lg"
-//                 >
-//                   <option value="admin">Admin</option>
-//                   <option value="karyawan">Karyawan</option>
-//                 </select>
-//               </div>
-
-//               {/* Button */}
-//               <div className="md:col-span-2">
-//                 <button
-//                   type="submit"
-//                   className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-//                 >
-//                   {editId ? 'Update User' : 'Tambah User'}
-//                 </button>
-//               </div>
-//             </form>
-//           </div>
-
-//           {/* ===================== USERS ===================== */}
-//           <div className="bg-white rounded-xl shadow p-6">
-//             <h2 className="text-xl font-bold mb-4">Daftar Pengguna</h2>
-
-//             {/* Desktop Table */}
-//             <div className="hidden md:block overflow-x-auto">
-//               <table className="w-full border">
-//                 <thead className="bg-gray-100">
-//                   <tr>
-//                     <th className="p-3 text-left">Nama</th>
-//                     <th className="p-3 text-left">Email</th>
-//                     <th className="p-3">Role</th>
-//                     <th className="p-3">Aksi</th>
-//                   </tr>
-//                 </thead>
-//                 <tbody>
-//                   {users.map((u) => (
-//                     <tr key={u.id} className="border-t">
-//                       <td className="p-3">{u.name}</td>
-//                       <td className="p-3">{u.email}</td>
-//                       <td className="p-3">{u.role}</td>
-//                       <td className="p-3 space-x-2">
-//                         <button
-//                           onClick={() => handleEdit(u)}
-//                           className="px-3 py-1 bg-yellow-400 text-white rounded"
-//                         >
-//                           Edit
-//                         </button>
-//                         <button
-//                           onClick={() => handleDelete(u.id)}
-//                           className="px-3 py-1 bg-red-500 text-white rounded"
-//                         >
-//                           Hapus
-//                         </button>
-//                       </td>
-//                     </tr>
-//                   ))}
-//                 </tbody>
-//               </table>
-//             </div>
-
-//             {/* Mobile Card */}
-//             <div className="md:hidden space-y-4">
-//               {users.map((u) => (
-//                 <div
-//                   key={u.id}
-//                   className="border rounded-lg p-4 shadow-sm"
-//                 >
-//                   <p className="font-semibold">{u.name}</p>
-//                   <p className="text-sm text-gray-600">{u.email}</p>
-//                   <p className="text-sm">Role: {u.role}</p>
-//                   <div className="flex gap-2 mt-3">
-//                     <button
-//                       onClick={() => handleEdit(u)}
-//                       className="flex-1 bg-yellow-400 text-white py-2 rounded"
-//                     >
-//                       Edit
-//                     </button>
-//                     <button
-//                       onClick={() => handleDelete(u.id)}
-//                       className="flex-1 bg-red-500 text-white py-2 rounded"
-//                     >
-//                       Hapus
-//                     </button>
-//                   </div>
-//                 </div>
-//               ))}
-//             </div>
-//           </div>
-
-//         </div>
-//       </div>
-//     </AdminLayout>
-//   );
-// }
-
-// /* ===================== COMPONENT INPUT ===================== */
-// function Input({
-//   label,
-//   icon,
-//   name,
-//   type = 'text',
-//   value,
-//   onChange,
-//   required = true,
-// }) {
-//   return (
-//     <div>
-//       <label className="text-sm font-medium">{label}</label>
-//       <div className="relative mt-2">
-//         <div className="absolute left-3 top-3">{icon}</div>
-//         <input
-//           type={type}
-//           name={name}
-//           value={value}
-//           onChange={onChange}
-//           required={required}
-//           className="w-full pl-10 p-3 border rounded-lg"
-//         />
-//       </div>
-//     </div>
-//   );
-// }
-
-
-// login
-// "use client";
-
-// import React from "react";
-// import { useAuth } from "@/context/AuthContext";
-
-// export default function LoginPage() {
-//   const { login } = useAuth();
-
-//   const [role, setRole] = React.useState("admin");
-//   const [form, setForm] = React.useState({
-//     email: "",
-//     password: "",
-//   });
-//   const [error, setError] = React.useState("");
-//   const [loading, setLoading] = React.useState(false);
-
-//   const handleChange = (e) => {
-//     setForm({ ...form, [e.target.name]: e.target.value });
-//   };
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     setError("");
-//     setLoading(true);
-
-//     try {
-//       await login({ ...form, role });
-//     } catch (err) {
-//       setError(
-//         err?.response?.data?.message ||
-//           err?.message ||
-//           "Terjadi kesalahan saat login."
-//       );
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center px-4 sm:px-6 lg:px-8">
-//       {/* LOGIN CARD */}
-//       <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 sm:p-8">
-
-//         {/* LOGO */}
-//         <div className="flex items-center justify-center mb-6">
-//           <div className="bg-blue-600 p-3 rounded-xl mr-3">
-//             <svg
-//               className="w-7 h-7 text-white"
-//               fill="none"
-//               stroke="currentColor"
-//               viewBox="0 0 24 24"
-//             >
-//               <path
-//                 strokeLinecap="round"
-//                 strokeLinejoin="round"
-//                 strokeWidth={2}
-//                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-//               />
-//             </svg>
-//           </div>
-//           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-//             AttendTrack
-//           </h1>
-//         </div>
-
-//         <p className="text-center font-semibold text-gray-800">
-//           Welcome Back
-//         </p>
-//         <p className="text-center text-gray-600 text-sm mb-6">
-//           Sign in to access your attendance dashboard
-//         </p>
-
-//         {/* ROLE */}
-//         <div className="mb-6">
-//           <p className="text-center text-sm font-medium mb-3">Login As</p>
-//           <div className="grid grid-cols-2 gap-4">
-//             {[
-//               { key: "admin", label: "Admin / HR", icon: "👔" },
-//               { key: "karyawan", label: "Karyawan", icon: "👤" },
-//             ].map((r) => (
-//               <button
-//                 key={r.key}
-//                 type="button"
-//                 onClick={() => setRole(r.key)}
-//                 className={`py-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-//                   role === r.key
-//                     ? "bg-blue-600 text-white border-blue-600 scale-105"
-//                     : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-//                 }`}
-//               >
-//                 <div className="w-12 h-12 rounded-full bg-white/80 flex items-center justify-center text-3xl">
-//                   {r.icon}
-//                 </div>
-//                 <span className="font-semibold text-sm">{r.label}</span>
-//               </button>
-//             ))}
-//           </div>
-//         </div>
-
-//         {/* ERROR */}
-//         {error && (
-//           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm text-center">
-//             {error}
-//           </div>
-//         )}
-
-//         {/* FORM */}
-//         <form onSubmit={handleSubmit}>
-//           {/* EMAIL */}
-//           <div className="mb-4">
-//             <label className="text-sm font-medium text-gray-700">
-//               Email Address
-//             </label>
-//             <input
-//               type="email"
-//               name="email"
-//               value={form.email}
-//               onChange={handleChange}
-//               required
-//               placeholder="your@email.com"
-//               className="w-full mt-2 px-4 py-3 rounded-2xl border bg-gray-50 focus:border-blue-600 focus:outline-none"
-//             />
-//           </div>
-
-//           {/* PASSWORD */}
-//           <div className="mb-6">
-//             <label className="text-sm font-medium text-gray-700">
-//               Password
-//             </label>
-//             <input
-//               type="password"
-//               name="password"
-//               value={form.password}
-//               onChange={handleChange}
-//               required
-//               placeholder="••••••••"
-//               className="w-full mt-2 px-4 py-3 rounded-2xl border bg-gray-50 focus:border-blue-600 focus:outline-none"
-//             />
-//           </div>
-
-//           {/* REMEMBER */}
-//           <div className="flex items-center justify-between mb-6">
-//             <label className="flex items-center gap-2 text-sm">
-//               <input type="checkbox" className="rounded" />
-//               Remember me
-//             </label>
-//             <a href="#" className="text-sm text-blue-600 hover:underline">
-//               Forgot password?
-//             </a>
-//           </div>
-
-//           {/* BUTTON */}
-//           <button
-//             type="submit"
-//             disabled={loading}
-//             className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-700 transition disabled:opacity-60"
-//           >
-//             {loading ? "Signing In..." : "Sign In"}
-//           </button>
-//         </form>
-//       </div>
-//     </div>
-//   );
-// }
+"use client";
+import AdminLayout from "@/components/Adminlayout";
+import React, { useState, useEffect } from "react";
+import useAuthMiddleware from "@/hooks/auth";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import html2canvas from "html2canvas";
+import ExcelJS from "exceljs";
+
+import api from "@/utils/axios";
+import Notification from "@/components/Notification";
+
+export default function AttendanceReportPage() {
+  useAuthMiddleware();
+  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState(null);
+  const [notification, setNotification] = useState({ show: false, message: "", type: "info" });
+  const [reportData, setReportData] = useState({
+    overallStats: { attendanceRate: 0, lateRate: 0, absenceRate: 0, totalPresent: 0 },
+    sixMonthTrend: [],
+    weeklyTrend: [],
+    todayDistribution: [],
+    departmentStats: [],
+    timeDistribution: [],
+    detailedAttendance: []
+  });
+
+  const barChartRef = React.useRef(null);
+  const pieChartRef = React.useRef(null);
+
+  const fetchDetailedAttendance = async () => {
+    try {
+      const res = await api.get("/attendances");
+      // Filter out weekends (0 = Sunday, 6 = Saturday)
+      const filteredData = res.data.filter(emp => {
+        const day = new Date(emp.date).getDay();
+        return day !== 0 && day !== 6;
+      });
+      return filteredData;
+    } catch (err) {
+      console.error("Failed to fetch detailed attendance:", err);
+      return [];
+    }
+  };
+
+  const handleExport = async () => {
+    setLoading(true);
+    setNotification({ show: true, message: "Sedang menyiapkan laporan eksekutif...", type: "info" });
+    try {
+      const rawDetails = await fetchDetailedAttendance();
+
+      // Filter out weekends (0 = Sunday, 6 = Saturday)
+      const details = rawDetails.filter(emp => {
+        const day = new Date(emp.date).getDay();
+        return day !== 0 && day !== 6;
+      });
+
+      if (!details || details.length === 0) {
+        setNotification({ show: true, message: "Tidak ada data absensi untuk diexport.", type: "warning" });
+        setLoading(false);
+        return;
+      }
+
+      setNotification({ show: true, message: "Menangkap data visual...", type: "info" });
+
+      // Capture charts as images
+      const captureChart = async (ref) => {
+        if (!ref.current) return null;
+        try {
+          const canvas = await html2canvas(ref.current, {
+            scale: 2, // Higher quality
+            useCORS: true,
+            logging: false,
+            backgroundColor: "#ffffff"
+          });
+          return canvas.toDataURL("image/png");
+        } catch (e) {
+          console.error("Capture failed", e);
+          return null;
+        }
+      };
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const barChartImg = await captureChart(barChartRef);
+      const pieChartImg = await captureChart(pieChartRef);
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Attendance Dashboard");
+
+      // Column definitions
+      worksheet.columns = [
+        { width: 5 },  // A: Gap
+        { width: 25 }, // B: Metric Labels
+        { width: 15 }, // C: Values
+        { width: 8 },  // D: Gap
+        { width: 10 }, // E: NO
+        { width: 35 }, // F: NAMA
+        { width: 15 }, // G: ROLE
+        { width: 25 }, // H: KANTOR
+        { width: 15 }, // I: STATUS
+        { width: 18 }, // J: JAM
+        { width: 18 }  // K: TANGGAL
+      ];
+
+      // --- BRANDING HEADER ---
+      worksheet.mergeCells('B2:C3');
+      const brandCell = worksheet.getCell('B2');
+      brandCell.value = "ATTENDTRACK";
+      brandCell.font = { name: 'Arial Black', size: 20, color: { argb: 'FF1E40AF' } };
+      brandCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      worksheet.mergeCells('E2:J3');
+      const mainTitle = worksheet.getCell('E2');
+      mainTitle.value = "MONTHLY ATTENDANCE ANALYSIS REPORT";
+      mainTitle.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF0F172A' } };
+      mainTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+      mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+
+      // --- INFO SECTION ---
+      worksheet.getCell('E4').value = `Generated: ${new Date().toLocaleString('id-ID')}`;
+      worksheet.getCell('E4').font = { size: 10, italic: true, color: { argb: 'FF64748B' } };
+      worksheet.mergeCells('E4:J4');
+
+      // --- SIDEBAR METRICS ---
+      const drawMetric = (row, label, value, color, textColor) => {
+        worksheet.getCell(row, 2).value = label;
+        worksheet.getCell(row, 2).font = { size: 9, bold: true, color: { argb: 'FF64748B' } };
+
+        const vCell = worksheet.getCell(row + 1, 2);
+        vCell.value = value;
+        vCell.font = { size: 24, bold: true, color: { argb: textColor } };
+        vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
+        vCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        vCell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
+        worksheet.mergeCells(row + 1, 2, row + 2, 3);
+      };
+
+      drawMetric(6, "ATTENDANCE RATE", `${reportData.overallStats.attendanceRate}%`, 'FFDBEAFE', 'FF1E40AF');
+      drawMetric(10, "LATE RATE", `${reportData.overallStats.lateRate}%`, 'FFFFEDD5', 'FF9A3412');
+      drawMetric(14, "ABSENCE RATE", `${reportData.overallStats.absenceRate}%`, 'FFFEE2E2', 'FF991B1B');
+      drawMetric(18, "TOTAL RECORDS", details.length, 'FFF8FAFC', 'FF334155');
+
+      setNotification({ show: true, message: "Menyusun lembar kerja bulanan...", type: "info" });
+
+      // Group by Month-Year
+      const groupedByMonth = details.reduce((acc, emp) => {
+        const dateObj = new Date(emp.date);
+        const monthYear = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        if (!acc[monthYear]) acc[monthYear] = [];
+        acc[monthYear].push(emp);
+        return acc;
+      }, {});
+
+      // Add Monthly Sheets
+      Object.entries(groupedByMonth).forEach(([monthYear, monthDetails]) => {
+        const monthSheet = workbook.addWorksheet(monthYear);
+
+        // Column definitions for monthly sheet
+        monthSheet.columns = [
+          { width: 8 },  // A: NO
+          { width: 35 }, // B: NAMA
+          { width: 15 }, // C: ROLE
+          { width: 25 }, // D: KANTOR
+          { width: 15 }, // E: STATUS
+          { width: 18 }, // F: JAM
+          { width: 18 }  // G: TANGGAL
+        ];
+
+        // --- HEADER ---
+        monthSheet.mergeCells('A1:G2');
+        const monthTitle = monthSheet.getCell('A1');
+        monthTitle.value = `LAPORAN KEHADIRAN - ${monthYear.toUpperCase()}`;
+        monthTitle.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+        monthTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+        monthTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+
+        // --- TABLE HEADERS ---
+        const headers = ["NO", "NAMA KARYAWAN", "ROLE", "PENEMPATAN KANTOR", "STATUS", "WAKTU", "TANGGAL"];
+        headers.forEach((h, i) => {
+          const cell = monthSheet.getCell(3, i + 1);
+          cell.value = h;
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = { bottom: { style: 'medium', color: { argb: 'FF3B82F6' } } };
+        });
+
+        // --- DATA ---
+        monthDetails.forEach((emp, idx) => {
+          const rowIdx = 4 + idx;
+          const rowData = [
+            idx + 1,
+            emp.user.name,
+            emp.user.role || "Karyawan",
+            emp.user.company || "Global",
+            emp.status,
+            emp.check_in_time || "--:--",
+            emp.date
+          ];
+
+          rowData.forEach((val, i) => {
+            const cell = monthSheet.getCell(rowIdx, i + 1);
+            cell.value = val;
+            cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
+            cell.font = { size: 10, color: { argb: 'FF334155' } };
+
+            if (idx % 2 === 1) {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+            }
+
+            cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
+
+            if (i === 4) {
+              if (val === 'HADIR') cell.font = { bold: true, color: { argb: 'FF059669' } };
+              if (val === 'TELAT') cell.font = { bold: true, color: { argb: 'FFD97706' } };
+            }
+          });
+        });
+      });
+
+      // --- VISUAL ANALYTICS SECTION ---
+      const chartStartRow = 22;
+
+      worksheet.mergeCells(`B${chartStartRow}:J${chartStartRow}`);
+      const vizTitle = worksheet.getCell(`B${chartStartRow}`);
+      vizTitle.value = "VISUAL ANALYTICS & TRENDS";
+      vizTitle.font = { bold: true, size: 12, color: { argb: 'FF1E293B' } };
+      vizTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      vizTitle.alignment = { horizontal: 'left', vertical: 'middle' };
+
+      if (barChartImg) {
+        try {
+          const imageId = workbook.addImage({ base64: barChartImg, extension: 'png' });
+          worksheet.addImage(imageId, {
+            tl: { col: 1, row: chartStartRow + 1 },
+            ext: { width: 450, height: 260 }
+          });
+        } catch (e) { console.error("Bar chart embed failed", e); }
+      }
+
+      if (pieChartImg) {
+        try {
+          const imageId = workbook.addImage({ base64: pieChartImg, extension: 'png' });
+          worksheet.addImage(imageId, {
+            tl: { col: 6, row: chartStartRow + 1 },
+            ext: { width: 350, height: 260 }
+          });
+        } catch (e) { console.error("Pie chart embed failed", e); }
+      }
+
+      setNotification({ show: true, message: "Finalisasi file...", type: "info" });
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `AttendTrack_Executive_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+
+      setNotification({ show: true, message: "Laporan eksekutif berhasil diunduh!", type: "success" });
+      setLoading(false);
+    } catch (err) {
+      console.error("Export failed:", err);
+      setNotification({ show: true, message: "Gagal mengekspor laporan. Silakan coba lagi.", type: "error" });
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchReportData = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/reports/summary");
+        setReportData(prev => ({ ...prev, ...res.data }));
+        setError(null);
+      } catch (err) {
+        console.error("Failed to fetch report data:", err);
+        setError("Gagal memuat data laporan. Coba refresh halaman.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReportData();
+    setMounted(true);
+  }, []);
+
+  const {
+    overallStats,
+    sixMonthTrend,
+    weeklyTrend,
+    todayDistribution,
+    departmentStats,
+    timeDistribution
+  } = reportData;
+
+  return (
+    <AdminLayout>
+      <div className="space-y-8 max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Analisis Kehadiran</h2>
+            <p className="text-slate-500 font-bold text-sm mt-1">Visualisasi data dan analitik komprehensif sistem AttendTrack</p>
+          </div>
+          <button
+            onClick={handleExport}
+            disabled={loading}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-emerald-100 transition active:scale-95 disabled:opacity-50 disabled:pointer-events-none group"
+          >
+            <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            Export Laporan Bulanan
+          </button>
+        </div>
+
+        {/* Highlight Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+          {loading && !reportData.overallStats.totalPresent && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex items-center justify-center rounded-[2.5rem]">
+              <div className="animate-spin w-10 h-10 border-[3px] border-blue-600 border-t-transparent rounded-full"></div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-100">Live Analytics</span>
+            </div>
+            <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Total Kehadiran</p>
+            <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.attendanceRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="bg-orange-50 text-orange-600 p-4 rounded-2xl group-hover:bg-orange-600 group-hover:text-white transition-colors duration-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="bg-orange-50 text-orange-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-orange-100">Monthly Avg</span>
+            </div>
+            <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Rata-rata Terlambat</p>
+            <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.lateRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="bg-rose-50 text-rose-600 p-4 rounded-2xl group-hover:bg-rose-600 group-hover:text-white transition-colors duration-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <span className="bg-rose-50 text-rose-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-rose-100">Real-time</span>
+            </div>
+            <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Tingkat Absensi</p>
+            <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.absenceRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-rose-50 border border-rose-100 text-rose-600 px-8 py-4 rounded-3xl text-sm font-bold flex items-center gap-3">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 6-Month Trend */}
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+            <div className="mb-8">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Trend 6 Bulan Terakhir</h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Pola kehadiran historis sistem</p>
+            </div>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={sixMonthTrend}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }} />
+                  <Line type="monotone" dataKey="present" stroke="#10b981" strokeWidth={4} dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="late" stroke="#f59e0b" strokeWidth={4} dot={{ r: 4, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="absent" stroke="#ef4444" strokeWidth={4} dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-8 mt-6">
+              <div className="flex items-center gap-2"><div className="w-2 h-2 bg-emerald-500 rounded-full"></div><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hadir</span></div>
+              <div className="flex items-center gap-2"><div className="w-2 h-2 bg-orange-500 rounded-full"></div><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Telat</span></div>
+              <div className="flex items-center gap-2"><div className="w-2 h-2 bg-rose-500 rounded-full"></div><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Absen</span></div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+              <div className="mb-6">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Aktivitas Mingguan</h3>
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Breakdown performa 7 hari terakhir</p>
+              </div>
+              <div className="h-[280px]" ref={barChartRef}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '20px', border: 'none', shadow: 'xl' }} />
+                    <Bar dataKey="present" fill="#10b981" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="late" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="absent" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+              <div className="mb-6">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Distribusi Hari Ini</h3>
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Status kehadiran real-time</p>
+              </div>
+              <div className="flex flex-col md:flex-row items-center justify-around gap-8" ref={pieChartRef}>
+                <div className="w-[180px] h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={todayDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" stroke="none">
+                        {todayDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-1 gap-5">
+                  {todayDistribution.map((item) => (
+                    <div key={item.name} className="flex items-center gap-4">
+                      <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: item.color }}></div>
+                      <div>
+                        <p className="text-2xl font-black text-slate-900 leading-none">{item.value}</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{item.name}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+            <div className="mb-8">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Komparasi Penempatan</h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Efektivitas presensi berdasarkan lokasi (%)</p>
+            </div>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={departmentStats} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" domain={[0, 100]} hide />
+                  <YAxis dataKey="dept" type="category" width={120} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '20px', border: 'none' }} />
+                  <Bar dataKey="present" fill="#10b981" radius={[0, 10, 10, 0]} barSize={25} />
+                  <Bar dataKey="late" fill="#f59e0b" radius={[0, 10, 10, 0]} barSize={25} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
+            <div className="mb-8">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Analisa Waktu Kedatangan</h3>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Distribusi jam masuk karyawan hari ini</p>
+            </div>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={timeDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                  <Tooltip contentStyle={{ borderRadius: '24px', border: 'none' }} />
+                  <Line type="stepAfter" dataKey="checkins" stroke="#3b82f6" strokeWidth={5} dot={{ fill: "#3b82f6", r: 5, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Report Summary Card */}
+        <div className="bg-slate-900 rounded-[3rem] p-12 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/20 rounded-full -mr-48 -mt-48 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-600/10 rounded-full -ml-48 -mb-48 blur-3xl"></div>
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+            <div className="max-w-md">
+              <h3 className="text-3xl font-black text-white tracking-tight mb-4">Ringkasan Eksekutif</h3>
+              <p className="text-slate-400 font-bold text-sm leading-relaxed">
+                Berdasarkan data analitik sistem, hari ini menunjukkan performa kehadiran sebesar <span className="text-emerald-400">{overallStats.attendanceRate}%</span>.
+                Optimalkan manajemen waktu pada lokasi dengan tingkat keterlambatan tinggi.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-12 flex-1 w-full">
+              <div className="text-center">
+                <p className="text-4xl font-black text-white tracking-tighter">{overallStats.attendanceRate}%</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Avg Attendance</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-black text-emerald-400 tracking-tighter">{overallStats.totalPresent}</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Total Present</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-black text-orange-400 tracking-tighter">{overallStats.lateRate}%</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Late Rate</p>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl font-black text-rose-500 tracking-tighter">{overallStats.absenceRate}%</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Absence Rate</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Notification
+          show={notification.show}
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification({ ...notification, show: false })}
+        />
+      </div>
+    </AdminLayout>
+  );
+}

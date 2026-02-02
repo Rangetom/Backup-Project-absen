@@ -19,40 +19,28 @@ class fotoController extends Controller
         ]);
         $user = Auth::user();
         $now = Carbon::now();
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDASI JAM ABSENSI
-        |--------------------------------------------------------------------------
-        */
-        $setting = $user->company;
 
-        if (!$setting) {
-            return response()->json(['message' => 'Anda tidak terdaftar di kantor manapun. Hubungi admin.'], 403);
+        // ===== GET ALLOWED COMPANIES =====
+        $allowedIds = $user->allowed_companies;
+        $allCompanies = \App\Models\Company::all();
+        
+        $targetCompanies = $allCompanies;
+        if ($allowedIds && !in_array('*', $allowedIds)) {
+            $targetCompanies = $allCompanies->whereIn('id', $allowedIds);
+        } elseif (!$allowedIds) {
+            $targetCompanies = $allCompanies->where('id', $user->company_id);
         }
 
-        // ===== VALIDASI WAKTU DENGAN CARBON =====
-        $today = Carbon::today();
-        $start = $today->copy()->setTimeFromTimeString($setting->time_in);
-        $late = $today->copy()->setTimeFromTimeString($setting->time_late);
-        $end = $today->copy()->setTimeFromTimeString($setting->time_out);
-
-        if ($now < $start) {
-            return response()->json(['message' => 'Absensi belum dibuka'], 403);
+        if ($targetCompanies->isEmpty()) {
+            return response()->json(['message' => 'Anda tidak memiliki akses ke kantor manapun. Hubungi admin.'], 403);
         }
 
-        if ($now > $end) {
-            return response()->json(['message' => 'Absensi sudah ditutup'], 403);
-        }
-
-        $status = $now > $late ? 'TELAT' : 'HADIR';
-
-        // ===== VALIDASI LOKASI (Check against ALL companies for multi-office check-in) =====
-        $companies = \App\Models\Company::all();
+        // ===== VALIDASI LOKASI (Cek terhadap kantor yang diperbolehkan) =====
         $atCompany = null;
         $minDistance = floatval('INF');
         $isInRange = false;
 
-        foreach ($companies as $comp) {
+        foreach ($targetCompanies as $comp) {
             $dist = $this->distance(
                 $comp->latitude,
                 $comp->longitude,
@@ -70,15 +58,33 @@ class fotoController extends Controller
 
             if ($distInMeters < $minDistance) {
                 $minDistance = $distInMeters;
-                $atCompany = $comp;
+                // Simpan info jarak terdekat walaupun tidak masuk range (untuk pesan error)
+                if (!$atCompany) $atCompany = $comp;
             }
         }
 
         if (!$isInRange) {
             return response()->json([
-                'message' => 'Anda berada di luar area absensi kantor manapun. Jarak terdekat: ' . round($minDistance, 2) . ' meter ke ' . $atCompany->name
+                'message' => 'Anda berada di luar area absensi kantor yang diizinkan. Jarak terdekat: ' . round($minDistance, 2) . ' meter ke ' . ($atCompany ? $atCompany->name : 'kantor')
             ], 403);
         }
+
+        // ===== VALIDASI JAM ABSENSI (Gunakan setting dari kantor tempat absen) =====
+        $setting = $atCompany; 
+        $today = Carbon::today();
+        $start = $today->copy()->setTimeFromTimeString($setting->time_in);
+        $late = $today->copy()->setTimeFromTimeString($setting->time_late);
+        $end = $today->copy()->setTimeFromTimeString($setting->time_out);
+
+        if ($now < $start) {
+            return response()->json(['message' => 'Absensi di ' . $setting->name . ' belum dibuka. Buka jam: ' . $setting->time_in], 403);
+        }
+
+        if ($now > $end) {
+            return response()->json(['message' => 'Absensi di ' . $setting->name . ' sudah ditutup. Tutup jam: ' . $setting->time_out], 403);
+        }
+
+        $status = $now > $late ? 'TELAT' : 'HADIR';
 
         // Log debug
         \Log::info('DEBUG WAKTU ABSENSI', [

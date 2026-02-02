@@ -18,6 +18,7 @@ class User extends Authenticatable
         'role',
         'employee_code',
         'company_id',
+        'allowed_companies',
     ];
 
     protected $hidden = [
@@ -28,6 +29,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'allowed_companies' => 'array',
     ];
 
     // Relation ke attendances

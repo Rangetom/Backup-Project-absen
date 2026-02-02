@@ -30,7 +30,8 @@ class adminController extends Controller
             'email' => 'required|email|unique:users',
             'password' => 'required',
             'role' => 'required|in:karyawan,admin,magang',
-            'company_id' => 'nullable|exists:companies,id'
+            'company_id' => 'nullable|exists:companies,id',
+            'allowed_companies' => 'nullable|array'
         ]);
 
         $user = User::create([
@@ -39,6 +40,7 @@ class adminController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role,
             'company_id' => $request->company_id,
+            'allowed_companies' => $request->allowed_companies,
         ]);
 
         return response()->json($user, 201);
@@ -53,14 +55,16 @@ class adminController extends Controller
             'email' => $request->email && $request->email !== $user->email 
                 ? 'required|email|unique:users' 
                 : 'required|email',
-            'role' => 'required|in:karyawan,admin,magang'
+            'role' => 'required|in:karyawan,admin,magang',
+            'allowed_companies' => 'nullable|array'
         ]);
 
         $updateData = [
             'name' => $request->name ?? $user->name,
             'email' => $request->email ?? $user->email,
             'role' => $request->role ?? $user->role,
-            'company_id' => $request->company_id ?? $user->company_id
+            'company_id' => $request->company_id ?? $user->company_id,
+            'allowed_companies' => $request->allowed_companies ?? $user->allowed_companies
         ];
 
         if ($request->password) {

@@ -222,7 +222,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Attendance Table Card */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 overflow-hidden">
+        <div className="bg-white rounded-4xl shadow-xl shadow-slate-200/60 border border-slate-50 overflow-hidden">
           <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
             <div>
               <h3 className="text-lg font-black text-slate-900 tracking-tight">Log Kehadiran</h3>
@@ -266,7 +266,7 @@ export default function DashboardPage() {
                     <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-lg shadow-blue-100 group-hover:scale-110 transition-transform duration-300">
+                          <div className="w-12 h-12 bg-linear-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-lg shadow-blue-100 group-hover:scale-110 transition-transform duration-300">
                             {emp.user.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
@@ -295,12 +295,19 @@ export default function DashboardPage() {
                         </div>
                       </td>
                       <td className="px-8 py-6 text-center">
-                        <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border ${emp.status === 'HADIR'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                          : 'bg-orange-50 text-orange-600 border-orange-100'
-                          }`}>
-                          {emp.status}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border ${emp.status === 'HADIR'
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                            : 'bg-orange-50 text-orange-600 border-orange-100'
+                            }`}>
+                            {emp.status}
+                          </span>
+                          {emp.late_duration && (
+                            <span className="text-[10px] font-bold text-orange-500 italic">
+                              ({emp.late_duration})
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-8 py-6 text-right">
                         <button
@@ -322,7 +329,7 @@ export default function DashboardPage() {
 
           {recentAttendance.length === 0 && !loading && !error && (
             <div className="py-24 text-center">
-              <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 text-slate-200 shadow-inner">
+              <div className="w-24 h-24 bg-slate-50 rounded-4xl flex items-center justify-center mx-auto mb-6 text-slate-200 shadow-inner">
                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4a2 2 0 012-2m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                 </svg>
@@ -334,11 +341,11 @@ export default function DashboardPage() {
 
         {/* Modal untuk View Foto Absen + Detail Lengkap */}
         {selectedAttendance && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={closePhotoModal}>
-            <div className="bg-white rounded-[3rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col md:flex-row max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-100 p-4" onClick={closePhotoModal}>
+            <div className="bg-white rounded-4xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col md:flex-row max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
 
               {/* Image Side */}
-              <div className="w-full md:w-1/2 bg-slate-900 relative min-h-[300px] flex items-center justify-center overflow-hidden">
+              <div className="w-full md:w-1/2 bg-slate-900 relative min-h-75 flex items-center justify-center overflow-hidden">
                 <img
                   src={selectedAttendance.photo_url}
                   alt="Foto Absensi"
@@ -348,7 +355,7 @@ export default function DashboardPage() {
                     e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%231e293b" width="400" height="300"/%3E%3Ctext fill="%23475569" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto Absensi Tidak Tersedia%3C/text%3E%3C/svg%3E';
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent pointer-events-none"></div>
+                <div className="absolute inset-0 bg-linear-to-t from-slate-900/60 to-transparent pointer-events-none"></div>
                 <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
                   <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 leading-none">Keamanan Data</p>
                   <p className="text-[10px] font-black text-white tracking-tight">Foto dienkripsi dengan Geo-tagging & Timestamp Verifikasi</p>
@@ -374,8 +381,8 @@ export default function DashboardPage() {
 
                 <div className="p-8 space-y-6">
                   {/* User Profile Summary */}
-                  <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-[2rem] border border-slate-100 shadow-sm">
-                    <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-200">
+                  <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-4xl border border-slate-100 shadow-sm">
+                    <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-200">
                       {selectedAttendance.user.name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div>
@@ -414,6 +421,21 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
+                  {/* Late Duration (conditional) */}
+                  {selectedAttendance.status === 'TELAT' && selectedAttendance.late_duration && (
+                    <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100 animate-pulse">
+                      <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-2">Durasi Terlambat</p>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-200 text-orange-700 rounded-xl">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span className="text-lg font-black text-orange-700">{selectedAttendance.late_duration}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Location Info */}
                   <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Meta-Tag Lokasi (Lat, Lng)</p>
@@ -440,7 +462,7 @@ export default function DashboardPage() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
-                      Lihat & Simpan Foto
+                      Lihat foto
                     </button>
                     <button
                       onClick={closePhotoModal}

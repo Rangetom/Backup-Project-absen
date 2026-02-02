@@ -42,6 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance/checkin', [fotoController::class, 'checkIn']);
     Route::get('/attendance/today', [AttendanceController::class, 'getTodayAttendance']);
     Route::get('/attendance/monthly-stats', [AttendanceController::class, 'getMonthlyStats']);
+    Route::get('/reports/user-summary', [\App\Http\Controllers\ReportController::class, 'getUserSummary']);
+    Route::get('/reports/employees-summary', [\App\Http\Controllers\ReportController::class, 'getEmployeesSummary']);
 });
 
 

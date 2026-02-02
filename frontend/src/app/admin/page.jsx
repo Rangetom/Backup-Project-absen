@@ -79,7 +79,8 @@ export default function AddUserForm() {
     email: "",
     password: "",
     role: "karyawan",
-    company_id: "", // Add company_id to form
+    company_id: "",
+    allowed_companies: [],
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -121,7 +122,7 @@ export default function AddUserForm() {
   const closeForm = () => {
     setIsModalOpen(false);
     setEditId(null);
-    setForm({ name: "", email: "", password: "", role: "karyawan", company_id: "" });
+    setForm({ name: "", email: "", password: "", role: "karyawan", company_id: "", allowed_companies: [] });
   };
 
   const handleSubmit = async (e) => {
@@ -148,7 +149,8 @@ export default function AddUserForm() {
       email: u.email,
       password: "",
       role: u.role,
-      company_id: u.company_id || "" // Populate company_id
+      company_id: u.company_id || "",
+      allowed_companies: u.allowed_companies || []
     });
     setEditId(u.id);
     setIsModalOpen(true);
@@ -237,7 +239,7 @@ export default function AddUserForm() {
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-[2rem] shadow-sm border border-slate-50">
+        <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-4xl shadow-sm border border-slate-50">
           <div className="relative flex-1 group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
             <input
@@ -248,7 +250,7 @@ export default function AddUserForm() {
               className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold text-sm text-slate-900 placeholder:text-slate-300"
             />
           </div>
-          <div className="relative min-w-[200px] group">
+          <div className="relative min-w-50 group">
             <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
             <select
               value={roleFilter}
@@ -313,7 +315,12 @@ export default function AddUserForm() {
                           <Building2 className="w-3.5 h-3.5" />
                         </div>
                         <span className="text-sm font-bold tracking-tight">
-                          {companies.find(c => c.id === u.company_id)?.name || u.company?.name || "Global / Tidak Ada"}
+                          {u.allowed_companies?.includes('*')
+                            ? "Semua Kantor"
+                            : (u.allowed_companies && u.allowed_companies.length > 0)
+                              ? u.allowed_companies.map(id => companies.find(c => c.id.toString() === id.toString() || c.id === id)?.name).filter(n => n).join(', ')
+                              : (companies.find(c => c.id === u.company_id)?.name || u.company?.name || "Global / Tidak Ada")
+                          }
                         </span>
                       </div>
                     </td>
@@ -360,25 +367,25 @@ export default function AddUserForm() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-60 p-4">
-          <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-100 p-4 overflow-y-auto">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[95vh] relative text-slate-900">
             {/* Header */}
-            <div className="bg-blue-600 p-8 relative overflow-hidden">
+            <div className="bg-blue-600 p-6 lg:p-8 relative overflow-hidden shrink-0">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-              <p className="text-blue-100 text-[10px] font-black uppercase tracking-[0.3em] mb-2 relative z-10">Pendaftaran System</p>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tight relative z-10">
+              <p className="text-blue-100 text-[10px] font-black uppercase tracking-[0.3em] mb-1 relative z-10">Pendaftaran System</p>
+              <h3 className="text-xl lg:text-2xl font-black text-white uppercase tracking-tight relative z-10">
                 {editId ? "Ubah Data Pengguna" : "Tambah Pengguna Baru"}
               </h3>
               <button
                 onClick={closeForm}
-                className="absolute top-6 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition active:scale-95 z-20"
+                className="absolute top-1/2 -translate-y-1/2 right-6 lg:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition active:scale-95 z-20"
               >
                 <X className="w-5 h-5 text-white" />
               </button>
             </div>
 
             {/* Form Body */}
-            <form onSubmit={handleSubmit} className="p-8 lg:p-10 space-y-6">
+            <form onSubmit={handleSubmit} className="p-6 lg:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nama Lengkap</label>
                 <div className="relative group">
@@ -453,24 +460,54 @@ export default function AddUserForm() {
                     </select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Kantor</label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
-                      <Building2 className="w-5 h-5" />
-                    </div>
-                    <select
-                      name="company_id"
-                      className="text-slate-900 block w-full pl-14 pr-5 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-600 transition font-bold appearance-none cursor-pointer"
-                      value={form.company_id || ""}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="" disabled>-- Pilih Kantor --</option>
+                <div className="space-y-4 col-span-full">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Akses Absensi Kantor (Bisa Pilih Banyak)</label>
+                  <div className="bg-slate-50 p-6 rounded-4xl border border-slate-200/60 space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.allowed_companies?.includes('*')}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setForm({ ...form, allowed_companies: ['*'] });
+                          } else {
+                            setForm({ ...form, allowed_companies: [] });
+                          }
+                        }}
+                        className="w-5 h-5 rounded-lg border-slate-200 text-blue-600 focus:ring-blue-600 cursor-pointer"
+                      />
+                      <span className="font-black text-xs uppercase tracking-widest text-slate-900 group-hover:text-blue-600 transition-colors">Semua Kantor</span>
+                    </label>
+                    <div className="h-px bg-slate-200/50 my-2"></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                       {companies?.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <label key={c.id} className={`flex items-center gap-3 cursor-pointer group p-2 rounded-xl hover:bg-white transition-all ${form.allowed_companies?.includes('*') ? 'opacity-30 pointer-events-none' : ''}`}>
+                          <input
+                            type="checkbox"
+                            disabled={form.allowed_companies?.includes('*')}
+                            checked={form.allowed_companies?.includes(c.id.toString()) || form.allowed_companies?.includes(c.id)}
+                            onChange={(e) => {
+                              const val = c.id;
+                              let newAllowed = [...(form.allowed_companies || [])];
+                              if (e.target.checked) {
+                                newAllowed.push(val);
+                                // Optional: Update primary company_id if not set
+                                if (!form.company_id) {
+                                  setForm({ ...form, company_id: val, allowed_companies: newAllowed });
+                                } else {
+                                  setForm({ ...form, allowed_companies: newAllowed });
+                                }
+                              } else {
+                                newAllowed = newAllowed.filter(id => id !== val && id.toString() !== val.toString());
+                                setForm({ ...form, allowed_companies: newAllowed });
+                              }
+                            }}
+                            className="w-5 h-5 rounded-lg border-slate-200 text-blue-600 focus:ring-blue-600 cursor-pointer"
+                          />
+                          <span className="font-bold text-sm text-slate-700 group-hover:text-blue-600 transition-colors">{c.name}</span>
+                        </label>
                       ))}
-                    </select>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -485,7 +522,7 @@ export default function AddUserForm() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-2 py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-blue-200 transition active:scale-95"
+                  className="flex-2 py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-blue-200/50 transition active:scale-95"
                 >
                   {editId ? "Simpan Perubahan" : "Daftarkan User"}
                 </button>

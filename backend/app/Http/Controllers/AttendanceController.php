@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Kehadiran;
+use App\Models\Company;
+use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
@@ -67,6 +69,7 @@ class AttendanceController extends Controller
                     ],
                     'check_in_time' => $attendance->check_in_time,
                     'status' => $attendance->status,
+                    'late_duration' => $this->getLateDuration($attendance),
                     'location' => ($attendance->latitude && $attendance->longitude 
                         ? number_format($attendance->latitude, 6) . ', ' . number_format($attendance->longitude, 6)
                         : 'Lokasi Kantor') . ($attendance->office_name ? ' (' . $attendance->office_name . ')' : ''),
@@ -108,6 +111,7 @@ class AttendanceController extends Controller
                 'has_checked_in' => true,
                 'check_in_time' => date('h:i A', strtotime($attendance->check_in_time)),
                 'status' => $attendance->status,
+                'late_duration' => $this->getLateDuration($attendance),
                 'location' => ($attendance->latitude && $attendance->longitude 
                     ? 'Lat: ' . number_format($attendance->latitude, 6) . ', Lng: ' . number_format($attendance->longitude, 6)
                     : 'Main Office - Floor 3') . ($attendance->office_name ? ' (' . $attendance->office_name . ')' : ''),
@@ -147,6 +151,51 @@ class AttendanceController extends Controller
         } catch (\Exception $e) {
             \Log::error('Monthly stats fetch error: ' . $e->getMessage());
             return response()->json(['error' => 'Gagal mengambil statistik bulanan'], 500);
+        }
+    }
+
+    private function getLateDuration($attendance)
+    {
+        if ($attendance->status !== 'TELAT') {
+            return null;
+        }
+
+        // Cari jam masuk kantor
+        $office = Company::where('name', $attendance->office_name)->first();
+        if (!$office) {
+            // Fallback ke company default user
+            $office = $attendance->user->company;
+        }
+
+        if (!$office || !$office->time_late) {
+            return null;
+        }
+
+        try {
+            $checkIn = Carbon::parse($attendance->check_in_time);
+            $lateThreshold = Carbon::parse($office->time_late);
+
+            if ($checkIn <= $lateThreshold) {
+                return null;
+            }
+
+            $diff = $checkIn->diff($lateThreshold);
+            $parts = [];
+            
+            if ($diff->h > 0) {
+                $parts[] = $diff->h . ' jam';
+            }
+            if ($diff->i > 0) {
+                $parts[] = $diff->i . ' menit';
+            }
+            
+            if (empty($parts)) {
+                return 'kurang dari 1 menit';
+            }
+
+            return implode(' ', $parts);
+        } catch (\Exception $e) {
+            return null;
         }
     }
 }
