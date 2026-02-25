@@ -65,10 +65,11 @@ export default function AttendanceReportPage() {
   const fetchDetailedAttendance = async () => {
     try {
       const res = await api.get("/attendances");
-      // Filter out weekends (0 = Sunday, 6 = Saturday)
+      // Filter out weekends (0 = Sunday, 6 = Saturday) and admins
       const filteredData = res.data.filter(emp => {
         const day = new Date(emp.date).getDay();
-        return day !== 0 && day !== 6;
+        const isAdmin = emp.user?.role === 'admin';
+        return day !== 0 && day !== 6 && !isAdmin;
       });
       return filteredData;
     } catch (err) {
@@ -705,8 +706,8 @@ export default function AttendanceReportPage() {
                                   key={tf.id}
                                   onClick={() => setIndividualTimeframe(tf.id)}
                                   className={`px-4 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${individualTimeframe === tf.id
-                                      ? "bg-white text-blue-600 shadow-sm"
-                                      : "text-slate-400 hover:text-slate-600"
+                                    ? "bg-white text-blue-600 shadow-sm"
+                                    : "text-slate-400 hover:text-slate-600"
                                     }`}
                                 >
                                   {tf.label} Ini

@@ -15,7 +15,7 @@ class ReportController extends Controller
     {
         try {
             $today = Carbon::today();
-            $totalEmployees = User::where('role', 'karyawan')->count();
+            $totalEmployees = User::where('role', '!=', 'admin')->count();
 
             $startOfMonth = Carbon::now()->startOfMonth();
             $workingDaysSoFar = now()->diffInDaysFiltered(function (Carbon $date) {
@@ -23,13 +23,19 @@ class ReportController extends Controller
             }, $startOfMonth) + 1;
 
             // 1. Overall Stats
-            $totalPresentToday = Kehadiran::whereDate('created_at', $today)->where('status', 'HADIR')->count();
-            $totalLateToday = Kehadiran::whereDate('created_at', $today)->where('status', 'TELAT')->count();
+            $totalPresentToday = Kehadiran::whereDate('created_at', $today)
+                ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
+                ->where('status', 'HADIR')->count();
+            $totalLateToday = Kehadiran::whereDate('created_at', $today)
+                ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
+                ->where('status', 'TELAT')->count();
             
             $attendanceRate = $totalEmployees > 0 ? round((($totalPresentToday + $totalLateToday) / $totalEmployees) * 100, 1) : 0;
             
-            $totalLateAllTime = Kehadiran::where('status', 'TELAT')->count();
-            $totalAttendancesAllTime = Kehadiran::count();
+            $totalLateAllTime = Kehadiran::whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
+                ->where('status', 'TELAT')->count();
+            $totalAttendancesAllTime = Kehadiran::whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
+                ->count();
             $lateRate = $totalAttendancesAllTime > 0 ? round(($totalLateAllTime / $totalAttendancesAllTime) * 100, 1) : 0;
 
             // 2. Today's Distribution
@@ -47,8 +53,12 @@ class ReportController extends Controller
                 $date = Carbon::today()->subDays($i);
                 $dayName = $date->format('D');
                 
-                $present = Kehadiran::whereDate('created_at', $date)->where('status', 'HADIR')->count();
-                $late = Kehadiran::whereDate('created_at', $date)->where('status', 'TELAT')->count();
+                $present = Kehadiran::whereDate('created_at', $date)
+                    ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
+                    ->where('status', 'HADIR')->count();
+                $late = Kehadiran::whereDate('created_at', $date)
+                    ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
+                    ->where('status', 'TELAT')->count();
                 $absent = max(0, $totalEmployees - ($present + $late));
 
                 $weeklyTrend[] = [
@@ -67,9 +77,11 @@ class ReportController extends Controller
                 
                 $present = Kehadiran::whereMonth('created_at', $monthDate->month)
                     ->whereYear('created_at', $monthDate->year)
+                    ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
                     ->where('status', 'HADIR')->count();
                 $late = Kehadiran::whereMonth('created_at', $monthDate->month)
                     ->whereYear('created_at', $monthDate->year)
+                    ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
                     ->where('status', 'TELAT')->count();
                 
                 $expectedAttendance = $totalEmployees * 22; 
@@ -86,7 +98,7 @@ class ReportController extends Controller
             // 5. Department Stats (Group by Company) - Scoped to Current Month
             $departmentStats = [];
             $companies = Company::withCount(['users' => function($query) {
-                $query->where('role', 'karyawan');
+                $query->where('role', '!=', 'admin');
             }])->get();
 
             foreach ($companies as $company) {
@@ -115,6 +127,7 @@ class ReportController extends Controller
             $hours = ['07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00'];
             foreach ($hours as $time) {
                 $count = Kehadiran::whereDate('created_at', $today)
+                    ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
                     ->where('check_in_time', '>=', $time)
                     ->where('check_in_time', '<', Carbon::createFromTimeString($time)->addMinutes(30)->format('H:i:s'))
                     ->count();
@@ -130,7 +143,9 @@ class ReportController extends Controller
                     'attendanceRate' => $attendanceRate,
                     'lateRate' => $lateRate,
                     'absenceRate' => 100 - $attendanceRate, // Simplified
-                    'totalPresent' => Kehadiran::whereDate('created_at', $today)->count(),
+                    'totalPresent' => Kehadiran::whereDate('created_at', $today)
+                        ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
+                        ->count(),
                 ],
                 'todayDistribution' => $todayDistribution,
                 'weeklyTrend' => $weeklyTrend,
