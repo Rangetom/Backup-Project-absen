@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 import useAuthMiddleware from "@/hooks/auth";
 import Notification from "@/components/Notification";
 import { X, Building2, Clock, MapPin, Target, Timer, Map as MapIcon } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 // Dynamic import for Map to avoid SSR issues
 const MapContainer = dynamic(
@@ -79,6 +80,7 @@ export default function CompaniesPage() {
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
 
@@ -152,6 +154,78 @@ export default function CompaniesPage() {
         }
     };
 
+    // Excel handlers
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = async (event) => {
+            try {
+                const workbook = XLSX.read(event.target.result, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const data = XLSX.utils.sheet_to_json(worksheet);
+
+                for (const row of data) {
+                    const companyData = {
+                        name: row['nama kantor'] || row.nama || row.name || '',
+                        latitude: parseFloat(row.latitude) || 0,
+                        longitude: parseFloat(row.longitude) || 0,
+                        radius_km: parseInt(row['radius meter'] || row.radius || row.radius_km) || 100,
+                        time_in: row['jam masuk'] || row.time_in || "08:00",
+                        time_late: row['batas telat'] || row.time_late || "08:15",
+                        time_out: row['jam pulang'] || row.time_out || "17:00",
+                    };
+
+                    try {
+                        await api.post("/companies", companyData);
+                    } catch (err) {
+                        console.error(`Gagal menambahkan kantor ${companyData.name}:`, err);
+                    }
+                }
+
+                showNotification("Data kantor dari Excel telah berhasil diimpor.");
+                fetchCompanies();
+            } catch (error) {
+                console.error('Error saat memproses file:', error);
+                showNotification("Gagal memproses file Excel.", "error");
+            }
+        };
+
+        if (file) {
+            reader.readAsBinaryString(file);
+        }
+    };
+
+    const downloadTemplate = () => {
+        const data = [
+            {
+                "nama kantor": "Kantor Pusat Jakarta",
+                "latitude": -6.200000,
+                "longitude": 106.816666,
+                "radius meter": 100,
+                "jam masuk": "08:00",
+                "batas telat": "08:15",
+                "jam pulang": "17:00"
+            },
+            {
+                "nama kantor": "Culinary Pro",
+                "latitude": -6.175110,
+                "longitude": 106.827170,
+                "radius meter": 150,
+                "jam masuk": "09:00",
+                "batas telat": "09:30",
+                "jam pulang": "18:00"
+            }
+        ];
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+        XLSX.writeFile(workbook, "template_import_kantor.xlsx");
+        showNotification("Template berhasil diunduh.");
+    };
+
     const handleEdit = (company) => {
         setIsEditing(true);
         setEditId(company.id);
@@ -213,13 +287,24 @@ export default function CompaniesPage() {
                         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Manajemen Kantor</h2>
                         <p className="text-slate-500 font-bold text-sm mt-1">Kelola data cabang dan titik lokasi presensi AttendTrack</p>
                     </div>
-                    <button
-                        onClick={openAddModal}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-200 transition active:scale-95 group"
-                    >
-                        <Building2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        Tambah Kantor
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={openAddModal}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-200 transition active:scale-95 group"
+                        >
+                            <Building2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            Tambah Kantor
+                        </button>
+                        <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="flex items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-6 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest border border-emerald-100 transition cursor-pointer"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Import Excel
+                        </button>
+                    </div>
                 </div>
 
                 {/* Companies Table Card */}
@@ -515,6 +600,103 @@ export default function CompaniesPage() {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-100 p-4">
+                    <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 relative text-slate-900 border border-slate-100">
+                        {/* Header */}
+                        <div className="bg-emerald-600 p-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                            <p className="text-emerald-100 text-[10px] font-black uppercase tracking-[0.3em] mb-1 relative z-10">Bulk Import Kantor</p>
+                            <h3 className="text-2xl font-black text-white uppercase tracking-tight relative z-10">Import Data Kantor</h3>
+                            <button
+                                onClick={() => setIsImportModalOpen(false)}
+                                className="absolute top-8 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition active:scale-95 z-20"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-8 space-y-8">
+                            {/* Instructions */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Petunjuk Pengisian</h4>
+                                <p className="text-sm text-slate-600 font-bold leading-relaxed">
+                                    Gunakan format file Excel yang telah ditentukan. Pastikan koordinat latitude dan longitude benar.
+                                </p>
+                                <div className="overflow-hidden border border-slate-100 rounded-2xl shadow-sm">
+                                    <table className="w-full text-left text-[10px] text-slate-600">
+                                        <thead className="bg-slate-50 border-b border-slate-100">
+                                            <tr>
+                                                <th className="px-4 py-3 font-black uppercase tracking-wider text-slate-400">nama kantor</th>
+                                                <th className="px-4 py-3 font-black uppercase tracking-wider text-slate-400">latitude</th>
+                                                <th className="px-4 py-3 font-black uppercase tracking-wider text-slate-400">longitude</th>
+                                                <th className="px-4 py-3 font-black uppercase tracking-wider text-slate-400">radius meter</th>
+                                                <th className="px-4 py-3 font-black uppercase tracking-wider text-slate-400">jam masuk</th>
+                                                <th className="px-4 py-3 font-black uppercase tracking-wider text-slate-400">batas telat</th>
+                                                <th className="px-4 py-3 font-black uppercase tracking-wider text-slate-400">jam pulang</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr className="border-b border-slate-50 bg-white">
+                                                <td className="px-4 py-3 font-bold">Kantor Pusat</td>
+                                                <td className="px-4 py-3 font-bold">-6.200000</td>
+                                                <td className="px-4 py-3 font-bold">106.816666</td>
+                                                <td className="px-4 py-3 font-bold">100</td>
+                                                <td className="px-4 py-3 font-bold">08:00</td>
+                                                <td className="px-4 py-3 font-bold">08:15</td>
+                                                <td className="px-4 py-3 font-bold">17:00</td>
+                                            </tr>
+                                            <tr className="bg-slate-50/30">
+                                                <td className="px-4 py-3 font-bold text-blue-600">Culinary Pro</td>
+                                                <td className="px-4 py-3 font-bold">-6.175110</td>
+                                                <td className="px-4 py-3 font-bold">106.827170</td>
+                                                <td className="px-4 py-3 font-bold">150</td>
+                                                <td className="px-4 py-3 font-bold">09:00</td>
+                                                <td className="px-4 py-3 font-bold">09:30</td>
+                                                <td className="px-4 py-3 font-bold">18:00</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <button
+                                    onClick={downloadTemplate}
+                                    className="flex items-center justify-center gap-3 p-5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-2xl font-black text-xs uppercase tracking-widest transition active:scale-95 border border-blue-100"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                    Unduh Contoh File
+                                </button>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        id="excel-upload-kantor"
+                                        accept=".xlsx, .xls"
+                                        onChange={(e) => {
+                                            handleFileUpload(e);
+                                            setIsImportModalOpen(false);
+                                        }}
+                                        className="hidden"
+                                    />
+                                    <label
+                                        htmlFor="excel-upload-kantor"
+                                        className="flex h-full items-center justify-center gap-3 p-5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-2xl font-black text-xs uppercase tracking-widest transition cursor-pointer active:scale-95 shadow-xl shadow-emerald-200/50"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        Unggah File Excel
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

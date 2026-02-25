@@ -37,17 +37,17 @@ export default function AdminLayout({ children }) {
       icon: <LayoutDashboard className="w-5 h-5 mr-3" />
     },
     {
-      href: "/kehadiran",
+      href: "/laporan-absen",
       label: "Laporan Absensi",
       icon: <FileText className="w-5 h-5 mr-3" />
     },
     {
-      href: "/companies",
+      href: "/daftar-kantor",
       label: "Daftar Kantor",
       icon: <Building2 className="w-5 h-5 mr-3" />
     },
     {
-      href: "/admin",
+      href: "/Manajemen-user",
       label: "Manajemen User",
       icon: <UserCog className="w-5 h-5 mr-3" />
     },

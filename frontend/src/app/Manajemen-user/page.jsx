@@ -3,7 +3,7 @@
 import AdminLayout from '@/components/Adminlayout';
 import { UserPlus, Mail, Lock, User, Building2, X, UserCog, Search, Filter } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import api from '@/utils/axios'; // Add api import
 import Swal from 'sweetalert2';
@@ -84,13 +84,6 @@ export default function AddUserForm() {
         "password": "password123",
         "role": "magang",
         "kantor utama": "Mentorbox ID"
-      },
-      {
-        "nama lengkap": "Budi Santoso",
-        "email": "budi@example.com",
-        "password": "password123",
-        "role": "administrator",
-        "kantor utama": "Culinarypro"
       }
     ];
 
@@ -136,30 +129,30 @@ export default function AddUserForm() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const data = await getAllUsers();
       setUsers(data);
     } catch (err) {
       console.error("Gagal fetch data user:", err);
     }
-  };
+  }, [getAllUsers]);
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     try {
       const res = await api.get('/companies');
       setCompanies(res.data);
     } catch (err) {
       console.error("Gagal fetch companies:", err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const fetchInitialData = async () => {
       await Promise.all([fetchUsers(), fetchCompanies()]);
     };
     fetchInitialData();
-  }, []);
+  }, [fetchUsers, fetchCompanies]);
 
 
   const handleChange = (e) => {
@@ -639,12 +632,6 @@ export default function AddUserForm() {
                         <td className="px-4 py-3 font-bold">pass123</td>
                         <td className="px-4 py-3 font-bold">magang</td>
                         <td className="px-4 py-3 font-bold text-blue-600">Mentorbox ID</td>
-                      </tr>
-                      <tr className="bg-white">
-                        <td className="px-4 py-3 font-bold">Budi Santoso</td>
-                        <td className="px-4 py-3 font-bold">pass123</td>
-                        <td className="px-4 py-3 font-bold">administrator</td>
-                        <td className="px-4 py-3 font-bold text-blue-600">Culinarypro</td>
                       </tr>
                     </tbody>
                   </table>
