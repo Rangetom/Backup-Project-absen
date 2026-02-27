@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import useAuthMiddleware from "@/hooks/auth";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/utils/axios";
 import Notification from "@/components/Notification";
 import * as faceapi from "@vladmandic/face-api";
 
+
 export default function EmployeeHome() {
-   useAuthMiddleware();
+  useAuthMiddleware();
   const { logout, user } = useAuth();
 
   const [isCapturing, setIsCapturing] = useState(false);
@@ -28,9 +29,12 @@ export default function EmployeeHome() {
   // State for today's attendance and monthly stats
   const [todayAttendance, setTodayAttendance] = useState({
     has_checked_in: false,
+    has_checked_out: false,
     check_in_time: null,
+    check_out_time: null,
     status: null,
     location: null,
+    office_settings: null,
     date: new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   });
 
@@ -76,7 +80,7 @@ export default function EmployeeHome() {
   };
 
   // ===== GPS & REVERSE GEOCODING =====
-  const getLocation = async () => {
+  const getLocation = useCallback(async () => {
     // Set loading state if needed
     setAddress("Mencari lokasi...");
 
@@ -96,12 +100,7 @@ export default function EmployeeHome() {
             const officeLat = parseFloat(comp.latitude);
             const officeLng = parseFloat(comp.longitude);
 
-            const dist = calculateDistance(
-              officeLat,
-              officeLng,
-              lat,
-              lng
-            );
+            const dist = calculateDistance(officeLat, officeLng, lat, lng);
 
             if (dist <= comp.radius_km) {
               foundInRange = true;
@@ -124,12 +123,7 @@ export default function EmployeeHome() {
           const officeLat = parseFloat(user.company.latitude);
           const officeLng = parseFloat(user.company.longitude);
 
-          const dist = calculateDistance(
-            officeLat,
-            officeLng,
-            lat,
-            lng
-          );
+          const dist = calculateDistance(officeLat, officeLng, lat, lng);
           setDistance(dist);
           setIsInRange(dist <= user.company.radius_km);
           setCurrentAtCompany(user.company);
@@ -158,10 +152,10 @@ export default function EmployeeHome() {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0 // PAKSA MENCARI TITIK BARU, JANGAN PAKAI CACHE
+        maximumAge: 0
       }
     );
-  };
+  }, [companies, user]);
 
   // ===== FACE API MODELS LOADING =====
   useEffect(() => {
@@ -220,13 +214,28 @@ export default function EmployeeHome() {
     fetchData();
     fetchCompanies();
     getLocation();
-  }, [user]);
+  }, [user, getLocation]);
 
   // ===== START CAMERA =====
   const startSelfie = async () => {
-    if (todayAttendance.has_checked_in) {
-      showNotification("Anda telah absen hari ini.", "info");
+    if (todayAttendance.has_checked_in && todayAttendance.has_checked_out) {
+      showNotification("Anda telah menyelesaikan absensi hari ini.", "info");
       return;
+    }
+
+    // Check if it's check-out and if time has met time_out
+    if (todayAttendance.has_checked_in && !todayAttendance.has_checked_out && todayAttendance.office_settings) {
+      const now = new Date();
+      const timeOutStr = todayAttendance.office_settings.time_out; // HH:mm:ss
+      const [hours, minutes, seconds] = timeOutStr.split(':').map(Number);
+
+      const timeOutDate = new Date();
+      timeOutDate.setHours(hours, minutes, seconds, 0);
+
+      if (now < timeOutDate) {
+        showNotification(`Belum waktunya absen pulang. Jam pulang: ${timeOutStr.substring(0, 5)}`, "warning");
+        return;
+      }
     }
     setIsCapturing(true);
     setCapturedImage(null);
@@ -387,27 +396,53 @@ export default function EmployeeHome() {
       });
 
       const data = response.data;
-      console.log('checkin response', data);
-
       showNotification(data.message, "success");
       closeSelfie();
-
-      // Refresh data after successful check-in
-      try {
-        const todayRes = await api.get('/attendance/today');
-        setTodayAttendance(todayRes.data);
-
-        const statsRes = await api.get('/attendance/monthly-stats');
-        setMonthlyStats(statsRes.data);
-      } catch (error) {
-        console.error('Error refreshing data:', error);
-      }
+      refreshData();
     } catch (error) {
-      console.error(error);
-      const errorMessage = error.response?.data?.message || "Gagal mengirim check-in";
-      const debugInfo = error.response?.data?.debug ? '\nDebug: ' + JSON.stringify(error.response.data.debug) : '';
-      showNotification(errorMessage + debugInfo, "error");
+      handleApiError(error, "check-in");
     }
+  };
+
+  const submitCheckOut = async () => {
+    if (!capturedImage || !location) {
+      alert("Foto / lokasi belum lengkap");
+      return;
+    }
+
+    try {
+      const response = await api.post("/attendance/checkout", {
+        photo: capturedImage,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+
+      const data = response.data;
+      showNotification(data.message, "success");
+      closeSelfie();
+      refreshData();
+    } catch (error) {
+      handleApiError(error, "check-out");
+    }
+  };
+
+  const refreshData = async () => {
+    try {
+      const todayRes = await api.get('/attendance/today');
+      setTodayAttendance(todayRes.data);
+
+      const statsRes = await api.get('/attendance/monthly-stats');
+      setMonthlyStats(statsRes.data);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  };
+
+  const handleApiError = (error, type) => {
+    console.error(error);
+    const errorMessage = error.response?.data?.message || `Gagal mengirim ${type}`;
+    const debugInfo = error.response?.data?.debug ? '\nDebug: ' + JSON.stringify(error.response.data.debug) : '';
+    showNotification(errorMessage + debugInfo, "error");
   };
 
   return (
@@ -538,15 +573,19 @@ export default function EmployeeHome() {
 
                 <button
                   onClick={startSelfie}
-                  disabled={!isInRange || todayAttendance.has_checked_in || !isModelsLoaded}
-                  className={`px-10 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all w-full max-w-sm shadow-xl ${(!isInRange || todayAttendance.has_checked_in || !isModelsLoaded)
+                  disabled={!isInRange || (todayAttendance.has_checked_in && todayAttendance.has_checked_out) || !isModelsLoaded}
+                  className={`px-10 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all w-full max-w-sm shadow-xl ${(!isInRange || (todayAttendance.has_checked_in && todayAttendance.has_checked_out) || !isModelsLoaded)
                     ? 'bg-gray-100 text-gray-300 cursor-not-allowed border-none'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-300 hover:shadow-blue-400 active:scale-98'
+                    : todayAttendance.has_checked_in
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-orange-300 hover:shadow-orange-400 active:scale-98'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-300 hover:shadow-blue-400 active:scale-98'
                     }`}
                 >
-                  {todayAttendance.has_checked_in
-                    ? 'Anda Telah Absen'
-                    : !isModelsLoaded ? 'Memuat Sensor...' : !isInRange ? 'Luar Area Kantor' : 'Mulai Absensi Sekarang'}
+                  {todayAttendance.has_checked_out
+                    ? 'Sudah Absen Hari Ini'
+                    : todayAttendance.has_checked_in
+                      ? 'Check-out Pulang'
+                      : !isModelsLoaded ? 'Memuat Sensor...' : !isInRange ? 'Luar Area Kantor' : 'Mulai Absensi Sekarang'}
                 </button>
               </div>
             </div>
@@ -581,6 +620,21 @@ export default function EmployeeHome() {
                       {todayAttendance.status === 'HADIR' ? 'Hadir' : 'Telat'}
                     </span>
                   )}
+                </div>
+
+                {/* Check-out Time */}
+                <div className="flex items-center group">
+                  <div className="bg-orange-50 p-4 rounded-2xl mr-4 group-hover:bg-orange-100 transition-colors">
+                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Check-out</p>
+                    <p className="font-black text-gray-900 text-lg">
+                      {todayAttendance.has_checked_out ? todayAttendance.check_out_time : '--:--'}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Location */}
@@ -705,8 +759,8 @@ export default function EmployeeHome() {
                       Ulangi Foto
                     </button>
                     <button
-                      onClick={submitCheckIn}
-                      className="bg-green-600 text-white px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest hover:bg-green-700 transition-all shadow-xl shadow-green-200 flex-1 hover:scale-105 active:scale-95"
+                      onClick={todayAttendance.has_checked_in ? submitCheckOut : submitCheckIn}
+                      className={`px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all shadow-xl flex-1 hover:scale-105 active:scale-95 ${todayAttendance.has_checked_in ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'} text-white`}
                     >
                       Kirim Sekarang
                     </button>

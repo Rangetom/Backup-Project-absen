@@ -1,6 +1,6 @@
 "use client";
 import AdminLayout from "@/components/Adminlayout";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import useAuthMiddleware from "@/hooks/auth";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -58,6 +58,10 @@ export default function AttendanceReportPage() {
   const [employeesSummary, setEmployeesSummary] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState("");
+  const [dateRange, setDateRange] = useState({
+    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0]
+  });
 
   const barChartRef = React.useRef(null);
   const pieChartRef = React.useRef(null);
@@ -346,10 +350,14 @@ export default function AttendanceReportPage() {
     setMounted(true);
   }, [currentUser]);
 
-  const fetchIndividualReport = async (userId) => {
+  const fetchIndividualReport = useCallback(async (userId, customRange = null) => {
     try {
       setLoadingUser(true);
-      const res = await api.get(`/reports/user-summary?user_id=${userId}`);
+      let url = `/reports/user-summary?user_id=${userId}`;
+      if (customRange) {
+        url += `&start_date=${customRange.start}&end_date=${customRange.end}`;
+      }
+      const res = await api.get(url);
       setIndividualData(res.data);
     } catch (err) {
       console.error("Failed to fetch individual report:", err);
@@ -357,7 +365,7 @@ export default function AttendanceReportPage() {
     } finally {
       setLoadingUser(false);
     }
-  };
+  }, [dateRange]);
 
   useEffect(() => {
     if (selectedUser) {
@@ -365,25 +373,25 @@ export default function AttendanceReportPage() {
     } else {
       setIndividualData(null);
     }
-  }, [selectedUser]);
+  }, [selectedUser, fetchIndividualReport]);
 
-  const fetchEmployeesSummary = async () => {
+  const fetchEmployeesSummary = useCallback(async () => {
     try {
       setLoadingEmployees(true);
-      const res = await api.get("/reports/employees-summary");
+      const res = await api.get(`/reports/employees-summary?start_date=${dateRange.start}&end_date=${dateRange.end}`);
       setEmployeesSummary(res.data);
     } catch (err) {
       console.error("Failed to fetch employees summary:", err);
     } finally {
       setLoadingEmployees(false);
     }
-  };
+  }, [dateRange]);
 
   useEffect(() => {
-    if (activeTab === "employees" && employeesSummary.length === 0) {
+    if (activeTab === "employees") {
       fetchEmployeesSummary();
     }
-  }, [activeTab, employeesSummary.length]);
+  }, [activeTab, fetchEmployeesSummary]);
 
   const {
     overallStats,
@@ -550,7 +558,7 @@ export default function AttendanceReportPage() {
 
                 <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
                   <div className="mb-6">
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Distribusi Hari Ini</h3>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">kehadiran Hari Ini</h3>
                     <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Status kehadiran real-time</p>
                   </div>
                   <div className="flex flex-col md:flex-row items-center justify-around gap-8" ref={pieChartRef}>
@@ -700,17 +708,25 @@ export default function AttendanceReportPage() {
                               {[
                                 { id: 'week', label: 'Minggu' },
                                 { id: 'month', label: 'Bulan' },
-                                { id: 'year', label: 'Tahun' }
+                                { id: 'year', label: 'Tahun' },
+                                { id: 'custom', label: 'Filter' }
                               ].map((tf) => (
                                 <button
                                   key={tf.id}
-                                  onClick={() => setIndividualTimeframe(tf.id)}
+                                  onClick={() => {
+                                    setIndividualTimeframe(tf.id);
+                                    if (tf.id === 'custom') {
+                                      fetchIndividualReport(selectedUser.id, dateRange);
+                                    } else {
+                                      fetchIndividualReport(selectedUser.id);
+                                    }
+                                  }}
                                   className={`px-4 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${individualTimeframe === tf.id
                                     ? "bg-white text-blue-600 shadow-sm"
                                     : "text-slate-400 hover:text-slate-600"
                                     }`}
                                 >
-                                  {tf.label} Ini
+                                  {tf.label} {tf.id === 'custom' ? '' : 'Ini'}
                                 </button>
                               ))}
                             </div>
@@ -730,15 +746,21 @@ export default function AttendanceReportPage() {
 
                         <div className="mt-4 grid grid-cols-3 gap-3">
                           <div className="p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100/50 text-center">
-                            <p className="text-xl font-black text-emerald-600 leading-none">{individualData.timeframeStats?.[individualTimeframe]?.hadir ?? individualData.overallStats.hadir}</p>
+                            <p className="text-xl font-black text-emerald-600 leading-none">
+                              {individualTimeframe === 'custom' ? individualData.customStats?.hadir : (individualData.timeframeStats?.[individualTimeframe]?.hadir ?? individualData.overallStats.hadir)}
+                            </p>
                             <p className="text-[8px] font-black text-emerald-400 uppercase mt-1">Hadir</p>
                           </div>
                           <div className="p-4 bg-orange-50/30 rounded-2xl border border-orange-100/50 text-center">
-                            <p className="text-xl font-black text-orange-600 leading-none">{individualData.timeframeStats?.[individualTimeframe]?.telat ?? individualData.overallStats.telat}</p>
+                            <p className="text-xl font-black text-orange-600 leading-none">
+                              {individualTimeframe === 'custom' ? individualData.customStats?.telat : (individualData.timeframeStats?.[individualTimeframe]?.telat ?? individualData.overallStats.telat)}
+                            </p>
                             <p className="text-[8px] font-black text-orange-400 uppercase mt-1">Telat</p>
                           </div>
                           <div className="p-4 bg-rose-50/30 rounded-2xl border border-rose-100/50 text-center">
-                            <p className="text-xl font-black text-rose-600 leading-none">{individualData.timeframeStats?.[individualTimeframe]?.absen ?? individualData.overallStats.absen}</p>
+                            <p className="text-xl font-black text-rose-600 leading-none">
+                              {individualTimeframe === 'custom' ? individualData.customStats?.absen : (individualData.timeframeStats?.[individualTimeframe]?.absen ?? individualData.overallStats.absen)}
+                            </p>
                             <p className="text-[8px] font-black text-rose-400 uppercase mt-1">Absen</p>
                           </div>
                         </div>
@@ -808,23 +830,49 @@ export default function AttendanceReportPage() {
               </div>
             ) : (
               <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 md:p-12">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 mb-12">
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight">Performa Karyawan</h3>
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Data kehadiran kumulatif bulan ini</p>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Filter data berdasarkan rentang tanggal</p>
                   </div>
-                  <div className="relative w-full md:w-80">
-                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 transition-all focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-50 focus-within:border-blue-200 group">
-                      <svg className="w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                      <input
-                        type="text"
-                        placeholder="Filter nama atau role..."
-                        className="bg-transparent border-none outline-none w-full text-sm font-bold text-slate-700 placeholder:text-slate-400"
-                        value={employeeSearch}
-                        onChange={(e) => setEmployeeSearch(e.target.value)}
-                      />
+
+                  <div className="flex flex-col md:flex-row items-center gap-4">
+                    {/* Date Range Picker UI */}
+                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2 focus-within:ring-4 focus-within:ring-blue-50 transition-all">
+                      <div className="flex flex-col">
+                        <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Dari</label>
+                        <input
+                          type="date"
+                          className="bg-transparent border-none outline-none text-xs font-black text-slate-700 p-0"
+                          value={dateRange.start}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                        />
+                      </div>
+                      <div className="w-px h-8 bg-slate-200 mx-2"></div>
+                      <div className="flex flex-col">
+                        <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Sampai</label>
+                        <input
+                          type="date"
+                          className="bg-transparent border-none outline-none text-xs font-black text-slate-700 p-0"
+                          value={dateRange.end}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative w-full md:w-64">
+                      <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 transition-all focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-50 focus-within:border-blue-200 group">
+                        <svg className="w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Cari nama..."
+                          className="bg-transparent border-none outline-none w-full text-xs font-bold text-slate-700 placeholder:text-slate-400"
+                          value={employeeSearch}
+                          onChange={(e) => setEmployeeSearch(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import useAuthMiddleware from "@/hooks/auth";
 import Link from "next/link";
@@ -42,7 +42,7 @@ export default function DashboardPage() {
     period: "today", // Default to today
   });
 
-  const fetchRecentAttendances = async (appliedFilters = filters) => {
+  const fetchRecentAttendances = useCallback(async (appliedFilters = filters) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -66,21 +66,21 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     try {
       const res = await api.get("/companies");
       setCompanies(res.data);
     } catch (error) {
       console.error("Failed to fetch companies:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchRecentAttendances();
     fetchCompanies();
-  }, []);
+  }, [fetchRecentAttendances, fetchCompanies]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -256,7 +256,8 @@ export default function DashboardPage() {
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Informasi Karyawan</th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Role</th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100">Penempatan</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Waktu Log</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Waktu Masuk</th>
+                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Waktu Pulang</th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-center">Status</th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-100 text-right">Aksi</th>
                   </tr>
@@ -292,6 +293,13 @@ export default function DashboardPage() {
                             {emp.check_in_time}
                           </span>
                           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{emp.date}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border mb-1 ${emp.check_out_time ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-slate-50 text-slate-300 border-slate-100'}`}>
+                            {emp.check_out_time || '--:--:--'}
+                          </span>
                         </div>
                       </td>
                       <td className="px-8 py-6 text-center">
@@ -345,20 +353,37 @@ export default function DashboardPage() {
             <div className="bg-white rounded-4xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col md:flex-row max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
 
               {/* Image Side */}
-              <div className="w-full md:w-1/2 bg-slate-900 relative min-h-75 flex items-center justify-center overflow-hidden">
-                <img
-                  src={selectedAttendance.photo_url}
-                  alt="Foto Absensi"
-                  className="w-full h-full object-cover opacity-90"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%231e293b" width="400" height="300"/%3E%3Ctext fill="%23475569" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto Absensi Tidak Tersedia%3C/text%3E%3C/svg%3E';
-                  }}
-                />
+              <div className="w-full md:w-1/2 bg-slate-900 relative min-h-75 flex flex-col items-center justify-center overflow-hidden">
+                <div className="flex-1 w-full relative">
+                  <p className="absolute top-4 left-4 z-20 px-3 py-1 bg-blue-600/80 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest rounded-lg">Foto Masuk</p>
+                  <img
+                    src={selectedAttendance.photo_url}
+                    alt="Foto Masuk"
+                    className="w-full h-full object-cover opacity-90"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%231e293b" width="400" height="300"/%3E%3Ctext fill="%23475569" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto Masuk Tidak Tersedia%3C/text%3E%3C/svg%3E';
+                    }}
+                  />
+                </div>
+                {selectedAttendance.check_out_time && (
+                  <div className="flex-1 w-full relative border-t border-white/10">
+                    <p className="absolute top-4 left-4 z-20 px-3 py-1 bg-orange-600/80 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest rounded-lg">Foto Pulang</p>
+                    <img
+                      src={selectedAttendance.photo_checkout_url}
+                      alt="Foto Pulang"
+                      className="w-full h-full object-cover opacity-90"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%231e293b" width="400" height="300"/%3E%3Ctext fill="%23475569" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto Pulang Tidak Tersedia%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-linear-to-t from-slate-900/60 to-transparent pointer-events-none"></div>
-                <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
+                <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 z-20">
                   <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 leading-none">Keamanan Data</p>
-                  <p className="text-[10px] font-black text-white tracking-tight">Foto dienkripsi dengan Geo-tagging & Timestamp Verifikasi</p>
+                  <p className="text-[10px] font-black text-white tracking-tight">Geo-tagging & Timestamp Verifikasi Aktif</p>
                 </div>
               </div>
 
@@ -398,7 +423,7 @@ export default function DashboardPage() {
                   {/* Attendance Stats Grid */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Check-in Log</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Check-in</p>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,15 +434,29 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Status Presensi</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Check-out</p>
                       <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${selectedAttendance.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
+                        <div className={`p-2 rounded-xl ${selectedAttendance.check_out_time ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'}`}>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
-                        <span className="text-lg font-black text-slate-900">{selectedAttendance.status === 'HADIR' ? 'Hadir' : 'Telat'}</span>
+                        <span className={`text-lg font-black ${selectedAttendance.check_out_time ? 'text-slate-900' : 'text-slate-300'}`}>
+                          {selectedAttendance.check_out_time || '--:--:--'}
+                        </span>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Status Presensi</p>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${selectedAttendance.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <span className="text-lg font-black text-slate-900">{selectedAttendance.status === 'HADIR' ? 'Hadir' : 'Telat'}</span>
                     </div>
                   </div>
 
