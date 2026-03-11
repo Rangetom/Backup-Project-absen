@@ -18,8 +18,14 @@ class Kehadiran extends Model
         'longitude',
         'check_in_time',
         'status',
-        'office_name'
+        'office_name',
+        'description',
+        'check_out_time',
+        'check_out_photo',
+        'check_out_latitude',
+        'check_out_longitude',
     ];
+
 
     // Relation ke User
     public function user()

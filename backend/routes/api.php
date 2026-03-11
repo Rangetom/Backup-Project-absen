@@ -40,7 +40,12 @@ Route::apiResource('companies', \App\Http\Controllers\CompanyController::class);
 */
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance/checkin', [fotoController::class, 'checkIn']);
+    Route::post('/attendance/checkout', [fotoController::class, 'checkOut']);
+    Route::post('/attendance/permit', [fotoController::class, 'permit']);
+    Route::match(['put', 'patch'], '/attendances/{id}/status', [AttendanceController::class, 'updateStatus']);
     Route::get('/attendance/today', [AttendanceController::class, 'getTodayAttendance']);
+
+
     Route::get('/attendance/monthly-stats', [AttendanceController::class, 'getMonthlyStats']);
     Route::get('/reports/user-summary', [\App\Http\Controllers\ReportController::class, 'getUserSummary']);
     Route::get('/reports/employees-summary', [\App\Http\Controllers\ReportController::class, 'getEmployeesSummary']);

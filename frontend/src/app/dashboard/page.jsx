@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [selectedAttendance, setSelectedAttendance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activePhotoTab, setActivePhotoTab] = useState('hadir'); // 'hadir' | 'pulang'
 
   // Notification state
   const [notification, setNotification] = useState({
@@ -25,6 +26,10 @@ export default function DashboardPage() {
     message: "",
     type: "success", // success | error
   });
+
+  const [isStatusUpdateOpen, setIsStatusUpdateOpen] = useState(false);
+  const [attendanceToUpdate, setAttendanceToUpdate] = useState(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const showNotification = (message, type = "success") => {
     setNotification({ show: true, message, type });
@@ -93,8 +98,8 @@ export default function DashboardPage() {
 
   const openPhotoModal = (attendance) => {
     console.log('Opening photo modal for:', attendance);
-    console.log('Photo URL:', attendance.photo_url);
-    setSelectedAttendance(attendance); // Simpan seluruh object attendance
+    setSelectedAttendance(attendance);
+    setActivePhotoTab('hadir');
   };
 
   const closePhotoModal = () => {
@@ -165,6 +170,8 @@ export default function DashboardPage() {
                 <option value="">Semua Status</option>
                 <option value="HADIR">Hadir</option>
                 <option value="TELAT">Telat</option>
+                <option value="ALPA">Alpha</option>
+                <option value="IZIN">Izin</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -289,8 +296,8 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-8 py-6 text-center">
                         <div className="flex flex-col items-center">
-                          <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black tracking-widest border border-blue-100 mb-1">
-                            {emp.check_in_time}
+                          <span className={`${emp.status === 'ALPA' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-blue-50 text-blue-600 border-blue-100'} px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border mb-1`}>
+                            {emp.status === 'ALPA' ? '--:--:--' : emp.check_in_time}
                           </span>
                           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{emp.date}</span>
                         </div>
@@ -298,16 +305,25 @@ export default function DashboardPage() {
                       <td className="px-8 py-6 text-center">
                         <div className="flex flex-col items-center">
                           <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border mb-1 ${emp.check_out_time ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-slate-50 text-slate-300 border-slate-100'}`}>
-                            {emp.check_out_time || '--:--:--'}
+                            {emp.status === 'ALPA' ? '--:--:--' : (emp.check_out_time || '--:--:--')}
                           </span>
                         </div>
                       </td>
                       <td className="px-8 py-6 text-center">
                         <div className="flex flex-col items-center gap-1">
-                          <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border ${emp.status === 'HADIR'
-                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                            : 'bg-orange-50 text-orange-600 border-orange-100'
-                            }`}>
+                          <span
+                            onClick={(e) => {
+                              if (user.role === 'admin') {
+                                e.stopPropagation();
+                                setAttendanceToUpdate(emp);
+                                setIsStatusUpdateOpen(true);
+                              }
+                            }}
+                            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border transition-all ${user.role === 'admin' ? 'cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md' : ''} ${emp.status === 'HADIR' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                              emp.status === 'IZIN' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                emp.status === 'ALPA' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                  'bg-orange-50 text-orange-600 border-orange-100'
+                              }`}>
                             {emp.status}
                           </span>
                           {emp.late_duration && (
@@ -346,81 +362,162 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Modal untuk View Foto Absen + Detail Lengkap */}
-        {selectedAttendance && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-100 p-4" onClick={closePhotoModal}>
-            <div className="bg-white rounded-4xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col md:flex-row max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+      {/* Modal untuk View Foto Absen + Detail Lengkap */}
+      {selectedAttendance && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-100 p-4" onClick={closePhotoModal}>
+          <div className="bg-white rounded-4xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col md:flex-row max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
 
-              {/* Image Side */}
-              <div className="w-full md:w-1/2 bg-slate-900 relative min-h-75 flex flex-col items-center justify-center overflow-hidden">
-                <div className="flex-1 w-full relative">
-                  <p className="absolute top-4 left-4 z-20 px-3 py-1 bg-blue-600/80 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest rounded-lg">Foto Masuk</p>
-                  <img
-                    src={selectedAttendance.photo_url}
-                    alt="Foto Masuk"
-                    className="w-full h-full object-cover opacity-90"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%231e293b" width="400" height="300"/%3E%3Ctext fill="%23475569" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto Masuk Tidak Tersedia%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
-                </div>
-                {selectedAttendance.check_out_time && (
-                  <div className="flex-1 w-full relative border-t border-white/10">
-                    <p className="absolute top-4 left-4 z-20 px-3 py-1 bg-orange-600/80 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest rounded-lg">Foto Pulang</p>
-                    <img
-                      src={selectedAttendance.photo_checkout_url}
-                      alt="Foto Pulang"
-                      className="w-full h-full object-cover opacity-90"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%231e293b" width="400" height="300"/%3E%3Ctext fill="%23475569" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EFoto Pulang Tidak Tersedia%3C/text%3E%3C/svg%3E';
-                      }}
-                    />
+            {/* Image Side */}
+            <div className="w-full md:w-1/2 bg-slate-50 relative min-h-100 flex flex-col p-6 overflow-y-auto custom-scrollbar border-r border-slate-100">
+              {selectedAttendance.status === 'IZIN' ? (
+                <div className="flex-1 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lampiran Dokumen</span>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-lg">Status: Izin</span>
                   </div>
-                )}
-                <div className="absolute inset-0 bg-linear-to-t from-slate-900/60 to-transparent pointer-events-none"></div>
-                <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 z-20">
-                  <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 leading-none">Keamanan Data</p>
-                  <p className="text-[10px] font-black text-white tracking-tight">Geo-tagging & Timestamp Verifikasi Aktif</p>
-                </div>
-              </div>
-
-              {/* Info Side */}
-              <div className="w-full md:w-1/2 flex flex-col overflow-y-auto custom-scrollbar">
-                {/* Header */}
-                <div className="bg-blue-600 p-8 relative overflow-hidden shrink-0">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                  <p className="text-blue-100 text-[10px] font-black uppercase tracking-[0.3em] mb-2 relative z-10">Verifikasi Detail</p>
-                  <h3 className="text-2xl font-black text-white uppercase tracking-tight relative z-10">Detail Absensi</h3>
-                  <button
-                    onClick={closePhotoModal}
-                    className="absolute top-6 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition active:scale-95 z-20"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="p-8 space-y-6">
-                  {/* User Profile Summary */}
-                  <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-4xl border border-slate-100 shadow-sm">
-                    <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-200">
-                      {selectedAttendance.user.name.split(' ').map(n => n[0]).join('')}
+                  {selectedAttendance.photo_url ? (
+                    <div className="relative aspect-square rounded-3xl overflow-hidden shadow-2xl shadow-slate-200 border-4 border-white">
+                      <img
+                        src={selectedAttendance.photo_url}
+                        alt="Lampiran Izin"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <div>
-                      <h4 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">{selectedAttendance.user.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{selectedAttendance.user.email}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">Penempatan: {selectedAttendance.user.company}</span>
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${selectedAttendance.user.role === 'magang' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>Role: {selectedAttendance.user.role}</span>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center bg-slate-100 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 text-xs font-bold">
+                      Lampiran tidak tersedia
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {/* Tab Switcher */}
+                  <div className="flex bg-slate-200/50 p-1.5 rounded-2xl gap-1">
+                    <button
+                      onClick={() => setActivePhotoTab('hadir')}
+                      className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${activePhotoTab === 'hadir' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full ${activePhotoTab === 'hadir' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                      Foto Masuk
+                    </button>
+                    <button
+                      onClick={() => setActivePhotoTab('pulang')}
+                      className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${activePhotoTab === 'pulang' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full ${activePhotoTab === 'pulang' ? 'bg-orange-600' : 'bg-slate-300'}`}></div>
+                      Foto Pulang
+                    </button>
+                  </div>
+
+                  <div className="relative overflow-hidden">
+                    {/* Foto Masuk Tab Content */}
+                    <div className={`transition-all duration-500 ${activePhotoTab === 'hadir' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-10 absolute pointer-events-none'}`}>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detail Check-in</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{selectedAttendance.status === 'ALPA' ? '--:--' : selectedAttendance.check_in_time}</span>
+                        </div>
+                        <div className="relative aspect-square rounded-3xl overflow-hidden shadow-2xl shadow-slate-200 border-4 border-white group bg-slate-100">
+                          {selectedAttendance.status === 'ALPA' ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-300">
+                              <svg className="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              <span className="text-[10px] font-black uppercase tracking-widest">Tidak Ada Foto</span>
+                            </div>
+                          ) : (
+                            <img
+                              src={selectedAttendance.photo_url}
+                              alt="Foto Masuk"
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23f1f5f9" width="400" height="400"/%3E%3Ctext fill="%2394a3b8" x="50%25" y="50%25" text-anchor="middle" dy=".3em" font-family="sans-serif" font-weight="black" font-size="14"%3EFOTO MASUK TIDAK TERSEDIA%3C/text%3E%3C/svg%3E';
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Foto Pulang Tab Content */}
+                    <div className={`transition-all duration-500 ${activePhotoTab === 'pulang' ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10 absolute pointer-events-none'}`}>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detail Check-out</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{selectedAttendance.status === 'ALPA' ? '--:--' : (selectedAttendance.check_out_time || '--:--')}</span>
+                        </div>
+                        <div className="relative aspect-square rounded-3xl overflow-hidden shadow-2xl shadow-slate-200 border-4 border-white group bg-slate-100">
+                          {selectedAttendance.check_out_time && selectedAttendance.status !== 'ALPA' ? (
+                            <img
+                              src={selectedAttendance.photo_checkout_url}
+                              alt="Foto Pulang"
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23f1f5f9" width="400" height="400"/%3E%3Ctext fill="%2394a3b8" x="50%25" y="50%25" text-anchor="middle" dy=".3em" font-family="sans-serif" font-weight="black" font-size="14"%3EFOTO PULANG TIDAK TERSEDIA%3C/text%3E%3C/svg%3E';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl">
+                              <svg className="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <p className="text-[10px] font-black uppercase tracking-widest">{selectedAttendance.status === 'ALPA' ? 'TIDAK TERSEDIA' : 'Menunggu Pulang'}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
 
-                  {/* Attendance Stats Grid */}
+            {/* Info Side */}
+            <div className="w-full md:w-1/2 flex flex-col overflow-y-auto custom-scrollbar">
+              {/* Header */}
+              <div className="bg-blue-600 p-8 relative overflow-hidden shrink-0">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                <p className="text-blue-100 text-[10px] font-black uppercase tracking-[0.3em] mb-2 relative z-10">Verifikasi Detail</p>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight relative z-10">Detail Absensi</h3>
+                <button
+                  onClick={closePhotoModal}
+                  className="absolute top-6 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition active:scale-95 z-20"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                {/* User Profile Summary */}
+                <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-4xl border border-slate-100 shadow-sm">
+                  <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-200">
+                    {selectedAttendance.user.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black text-slate-900 tracking-tight leading-none mb-1">{selectedAttendance.user.name}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{selectedAttendance.user.email}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest">Penempatan: {selectedAttendance.user.company}</span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${selectedAttendance.user.role === 'magang' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>Role: {selectedAttendance.user.role}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Attendance Stats Grid */}
+                {selectedAttendance.status === 'IZIN' ? (
+                  <div className="p-6 bg-blue-50/50 rounded-4xl border border-blue-100 shadow-sm">
+                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-3">Keterangan Izin</p>
+                    <p className="text-slate-700 font-bold leading-relaxed">
+                      {selectedAttendance.description || 'Tidak ada keterangan'}
+                    </p>
+                  </div>
+                ) : (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Check-in</p>
@@ -447,35 +544,46 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Status Presensi</p>
+                <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Status Presensi</p>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${selectedAttendance.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' :
+                      selectedAttendance.status === 'IZIN' ? 'bg-blue-100 text-blue-600' :
+                        selectedAttendance.status === 'ALPA' ? 'bg-rose-100 text-rose-600' :
+                          'bg-orange-100 text-orange-600'
+                      }`}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-lg font-black text-slate-900">
+                      {selectedAttendance.status === 'HADIR' ? 'Hadir' :
+                        selectedAttendance.status === 'IZIN' ? 'Izin' :
+                          selectedAttendance.status === 'ALPA' ? 'Alpa' :
+                            'Telat'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Late Duration (conditional) */}
+                {selectedAttendance.status === 'TELAT' && selectedAttendance.late_duration && (
+                  <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100 animate-pulse">
+                    <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-2">Durasi Terlambat</p>
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-xl ${selectedAttendance.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
+                      <div className="p-2 bg-orange-200 text-orange-700 rounded-xl">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
-                      <span className="text-lg font-black text-slate-900">{selectedAttendance.status === 'HADIR' ? 'Hadir' : 'Telat'}</span>
+                      <span className="text-lg font-black text-orange-700">{selectedAttendance.late_duration}</span>
                     </div>
                   </div>
+                )}
 
-                  {/* Late Duration (conditional) */}
-                  {selectedAttendance.status === 'TELAT' && selectedAttendance.late_duration && (
-                    <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100 animate-pulse">
-                      <p className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-2">Durasi Terlambat</p>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-200 text-orange-700 rounded-xl">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <span className="text-lg font-black text-orange-700">{selectedAttendance.late_duration}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Location Info */}
+                {/* Location Info */}
+                {selectedAttendance.status !== 'IZIN' && (
                   <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Meta-Tag Lokasi (Lat, Lng)</p>
                     <div className="flex items-center gap-3">
@@ -488,34 +596,112 @@ export default function DashboardPage() {
                       <span className="text-[11px] font-bold text-slate-700 leading-relaxed">{selectedAttendance.location}</span>
                     </div>
                   </div>
+                )}
 
-                  <div className="flex flex-col gap-3 pt-4">
-                    <button
-                      onClick={() => {
-                        showNotification("Membuka foto di jendela baru...", "success");
-                        // Opening in new tab is the most reliable way to save/download cross-origin images
-                        window.open(selectedAttendance.photo_url, '_blank');
-                      }}
-                      className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                      Lihat foto
-                    </button>
-                    <button
-                      onClick={closePhotoModal}
-                      className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition active:scale-95"
-                    >
-                      Tutup Jendela Detail
-                    </button>
-                  </div>
+                <div className="flex flex-col gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      showNotification("Membuka foto di jendela baru...", "success");
+                      window.open(selectedAttendance.photo_url, '_blank');
+                    }}
+                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Lihat foto
+                  </button>
+                  <button
+                    onClick={closePhotoModal}
+                    className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition active:scale-95"
+                  >
+                    Tutup Jendela Detail
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Status Update Modal */}
+      {isStatusUpdateOpen && attendanceToUpdate && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsStatusUpdateOpen(false)}>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-linear-to-br from-slate-900 to-slate-800 p-8 text-white relative">
+              <button onClick={() => setIsStatusUpdateOpen(false)} className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h3 className="text-2xl font-black uppercase tracking-tight mb-1">Update Status</h3>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Koreksi Data Presensi</p>
+            </div>
+
+            <div className="p-8">
+              <div className="flex items-center gap-4 mb-8 p-4 bg-slate-50 rounded-3xl border border-slate-100">
+                <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center text-xl font-black shadow-lg shadow-blue-100">
+                  {attendanceToUpdate.user.name.charAt(0)}
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 uppercase tracking-tight leading-tight">{attendanceToUpdate.user.name}</h4>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{attendanceToUpdate.user.role} • {attendanceToUpdate.date}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2 mb-4">Pilih Status Baru</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: 'HADIR', label: 'Hadir', color: 'emerald' },
+                    { id: 'TELAT', label: 'Telat', color: 'orange' },
+                    { id: 'ALPA', label: 'Alpa', color: 'rose' },
+                    { id: 'IZIN', label: 'Izin', color: 'blue' }
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      disabled={isUpdatingStatus}
+                      onClick={async () => {
+                        setIsUpdatingStatus(true);
+                        try {
+                          const response = await api.patch(`/attendances/${attendanceToUpdate.id}/status`, { status: s.id });
+                          if (response.status === 200) {
+                            fetchRecentAttendances();
+                            setIsStatusUpdateOpen(false);
+                            showNotification(`Status ${attendanceToUpdate.user.name} berhasil diubah ke ${s.id}`);
+                          }
+                        } catch (err) {
+                          console.error('Update failed:', err);
+                          console.error('Response data:', err.response?.data);
+                          alert(`Gagal memperbarui status: ${err.response?.data?.error || err.message}`);
+                        } finally {
+                          setIsUpdatingStatus(false);
+                        }
+                      }}
+                      className={`group relative p-4 rounded-3xl border-2 transition-all duration-300 text-left overflow-hidden ${attendanceToUpdate.status === s.id
+                        ? `bg-${s.color}-50 border-${s.color}-200 shadow-md`
+                        : 'bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50'
+                        }`}
+                    >
+                      <div className={`text-[10px] font-black uppercase tracking-widest mb-1 ${attendanceToUpdate.status === s.id ? `text-${s.color}-600` : 'text-slate-400 group-hover:text-slate-600'}`}>
+                        {s.label}
+                      </div>
+                      <div className={`w-1.5 h-1.5 rounded-full ${attendanceToUpdate.status === s.id ? `bg-${s.color}-500 shadow-[0_0_8px_rgba(var(--color-${s.color}-500),0.5)]` : 'bg-slate-200'}`}></div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsStatusUpdateOpen(false)}
+                className="w-full mt-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all hover:shadow-xl hover:-translate-y-0.5"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

@@ -100,6 +100,10 @@ export default function AttendanceReportPage() {
         return;
       }
 
+      // Fetch employee summary for the ringkasan sheet
+      const summaryRes = await api.get(`/reports/employees-summary?start_date=${dateRange.start}&end_date=${dateRange.end}`);
+      const employeeSummaryData = summaryRes.data;
+
       setNotification({ show: true, message: "Menangkap data visual...", type: "info" });
 
       // Capture charts as images
@@ -207,11 +211,12 @@ export default function AttendanceReportPage() {
           { width: 25 }, // D: KANTOR
           { width: 15 }, // E: STATUS
           { width: 18 }, // F: JAM
-          { width: 18 }  // G: TANGGAL
+          { width: 18 }, // G: TANGGAL
+          { width: 18 }  // H: DURASI TELAT
         ];
 
         // --- HEADER ---
-        monthSheet.mergeCells('A1:G2');
+        monthSheet.mergeCells('A1:H2');
         const monthTitle = monthSheet.getCell('A1');
         monthTitle.value = `LAPORAN KEHADIRAN - ${monthYear.toUpperCase()}`;
         monthTitle.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -219,7 +224,7 @@ export default function AttendanceReportPage() {
         monthTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
 
         // --- TABLE HEADERS ---
-        const headers = ["NO", "NAMA KARYAWAN", "ROLE", "PENEMPATAN KANTOR", "STATUS", "WAKTU", "TANGGAL"];
+        const headers = ["NO", "NAMA KARYAWAN", "ROLE", "PENEMPATAN KANTOR", "STATUS", "WAKTU", "TANGGAL", "DURASI TELAT"];
         headers.forEach((h, i) => {
           const cell = monthSheet.getCell(3, i + 1);
           cell.value = h;
@@ -239,7 +244,8 @@ export default function AttendanceReportPage() {
             emp.user.company || "Global",
             emp.status,
             emp.check_in_time || "--:--",
-            emp.date
+            emp.date,
+            emp.late_duration || "-"
           ];
 
           rowData.forEach((val, i) => {
@@ -259,6 +265,54 @@ export default function AttendanceReportPage() {
               if (val === 'TELAT') cell.font = { bold: true, color: { argb: 'FFD97706' } };
             }
           });
+        });
+      });
+
+      // --- ADD EMPLOYEE SUMMARY SHEET ---
+      const summarySheet = workbook.addWorksheet("Ringkasan Kinerja");
+      summarySheet.columns = [
+        { width: 8 },  // A: NO
+        { width: 35 }, // B: NAMA
+        { width: 15 }, // C: ROLE
+        { width: 12 }, // D: HADIR
+        { width: 12 }, // E: TELAT
+        { width: 12 }, // F: ABSEN
+        { width: 30 }  // G: TOTAL JAM TELAT
+      ];
+
+      summarySheet.mergeCells('A1:G2');
+      const sumTitle = summarySheet.getCell('A1');
+      sumTitle.value = `RINGKASAN KINERJA KARYAWAN (${dateRange.start} s/d ${dateRange.end})`;
+      sumTitle.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+      sumTitle.alignment = { vertical: 'middle', horizontal: 'center' };
+      sumTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+
+      const sumHeaders = ["NO", "NAMA KARYAWAN", "ROLE", "HADIR", "TELAT", "ABSEN", "TOTAL JAM KETERLAMBATAN"];
+      sumHeaders.forEach((h, i) => {
+        const cell = summarySheet.getCell(3, i + 1);
+        cell.value = h;
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      employeeSummaryData.forEach((emp, idx) => {
+        const rowIdx = 4 + idx;
+        const rowData = [
+          idx + 1,
+          emp.name,
+          emp.role,
+          emp.hadir,
+          emp.telat,
+          emp.absen,
+          emp.total_telat_format || "0 menit"
+        ];
+        rowData.forEach((val, i) => {
+          const cell = summarySheet.getCell(rowIdx, i + 1);
+          cell.value = val;
+          cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
+          if (idx % 2 === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          cell.border = { bottom: { style: 'thin', color: { argb: 'FFF1F5F9' } } };
         });
       });
 
@@ -458,43 +512,43 @@ export default function AttendanceReportPage() {
                 </div>
               )}
 
-              <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-500">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-blue-50 text-blue-600 p-3 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-500">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
-                  <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-100">Live Analytics</span>
+                  <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-100">Live</span>
                 </div>
-                <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Total Kehadiran</p>
-                <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.attendanceRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-none mb-2">Total Kehadiran</p>
+                <p className="text-4xl font-black text-slate-900 tracking-tight">{overallStats.attendanceRate}<span className="text-xl text-slate-300 ml-1">%</span></p>
               </div>
 
-              <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="bg-orange-50 text-orange-600 p-4 rounded-2xl group-hover:bg-orange-600 group-hover:text-white transition-colors duration-500">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-orange-50 text-orange-600 p-3 rounded-2xl group-hover:bg-orange-600 group-hover:text-white transition-colors duration-500">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <span className="bg-orange-50 text-orange-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-orange-100">Monthly Avg</span>
+                  <span className="bg-orange-50 text-orange-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-orange-100">Monthly</span>
                 </div>
-                <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Rata-rata Terlambat</p>
-                <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.lateRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-none mb-2">Rata-rata Terlambat</p>
+                <p className="text-4xl font-black text-slate-900 tracking-tight">{overallStats.lateRate}<span className="text-xl text-slate-300 ml-1">%</span></p>
               </div>
 
-              <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8 group hover:-translate-y-1 transition-all duration-300">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="bg-rose-50 text-rose-600 p-4 rounded-2xl group-hover:bg-rose-600 group-hover:text-white transition-colors duration-500">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-rose-50 text-rose-600 p-3 rounded-2xl group-hover:bg-rose-600 group-hover:text-white transition-colors duration-500">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
                   <span className="bg-rose-50 text-rose-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-rose-100">Real-time</span>
                 </div>
-                <p className="text-slate-400 font-bold text-[11px] uppercase tracking-widest leading-none mb-2">Tingkat Absensi</p>
-                <p className="text-5xl font-black text-slate-900 tracking-tight">{overallStats.absenceRate}<span className="text-2xl text-slate-300 ml-1">%</span></p>
+                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest leading-none mb-2">Tingkat Absensi</p>
+                <p className="text-4xl font-black text-slate-900 tracking-tight">{overallStats.absenceRate}<span className="text-xl text-slate-300 ml-1">%</span></p>
               </div>
             </div>
 
@@ -510,12 +564,12 @@ export default function AttendanceReportPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* 6-Month Trend */}
-              <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
-                <div className="mb-8">
+              <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-50 p-6">
+                <div className="mb-6">
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Trend 6 Bulan Terakhir</h3>
                   <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Pola kehadiran historis sistem</p>
                 </div>
-                <div className="h-[350px]">
+                <div className="h-[280px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={sixMonthTrend}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -536,12 +590,12 @@ export default function AttendanceReportPage() {
               </div>
 
               <div className="space-y-8">
-                <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
-                  <div className="mb-6">
+                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-50 p-6">
+                  <div className="mb-5">
                     <h3 className="text-xl font-black text-slate-900 tracking-tight">Aktivitas Mingguan</h3>
                     <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Breakdown performa 7 hari terakhir</p>
                   </div>
-                  <div className="h-[280px]" ref={barChartRef}>
+                  <div className="h-[240px]" ref={barChartRef}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={weeklyTrend}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -556,12 +610,12 @@ export default function AttendanceReportPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-8">
-                  <div className="mb-6">
+                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-50 p-6">
+                  <div className="mb-5">
                     <h3 className="text-xl font-black text-slate-900 tracking-tight">kehadiran Hari Ini</h3>
                     <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Status kehadiran real-time</p>
                   </div>
-                  <div className="flex flex-col md:flex-row items-center justify-around gap-8" ref={pieChartRef}>
+                  <div className="flex flex-col md:flex-row items-center justify-around gap-6" ref={pieChartRef}>
                     <div className="w-[180px] h-[180px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -686,79 +740,96 @@ export default function AttendanceReportPage() {
                 )}
 
                 {/* Individual User Analytics Card (Moved from Overview if needed, or mirrored) */}
-                <div className="bg-white rounded-4xl shadow-xl shadow-blue-200/20 border-2 border-blue-50 p-8 md:p-12 animate-in fade-in zoom-in duration-500 relative overflow-hidden">
+                <div className="bg-white rounded-4xl shadow-xl shadow-blue-200/20 border-2 border-blue-50 p-6 md:p-8 animate-in fade-in zoom-in duration-500 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 blur-3xl opacity-50"></div>
 
-                  <div className="relative z-10 flex flex-col lg:flex-row gap-12">
+                  <div className="relative z-10 flex flex-col lg:flex-row gap-8">
                     {/* User Left Info */}
-                    <div className="w-full lg:w-1/3 flex flex-col justify-between">
+                    <div className="w-full lg:w-[380px] flex flex-col justify-between">
                       <div>
-                        <div className="flex items-center gap-6 mb-8 text-slate-900">
-                          <div className="w-20 h-20 bg-blue-600 rounded-4xl flex items-center justify-center text-white font-black text-3xl shadow-xl shadow-blue-200">
+                        <div className="flex items-center gap-5 mb-6 text-slate-900">
+                          <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-200">
                             {individualData.user.avatar}
                           </div>
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
                             <div>
-                              <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">Analitik Individu</p>
-                              <h4 className="text-3xl font-black leading-none">{individualData.user.name}</h4>
-                              <p className="text-slate-400 font-bold text-sm mt-1 uppercase tracking-widest">{individualData.user.role}</p>
-                            </div>
-
-                            <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/50">
-                              {[
-                                { id: 'week', label: 'Minggu' },
-                                { id: 'month', label: 'Bulan' },
-                                { id: 'year', label: 'Tahun' },
-                                { id: 'custom', label: 'Filter' }
-                              ].map((tf) => (
-                                <button
-                                  key={tf.id}
-                                  onClick={() => {
-                                    setIndividualTimeframe(tf.id);
-                                    if (tf.id === 'custom') {
-                                      fetchIndividualReport(selectedUser.id, dateRange);
-                                    } else {
-                                      fetchIndividualReport(selectedUser.id);
-                                    }
-                                  }}
-                                  className={`px-4 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${individualTimeframe === tf.id
-                                    ? "bg-white text-blue-600 shadow-sm"
-                                    : "text-slate-400 hover:text-slate-600"
-                                    }`}
-                                >
-                                  {tf.label} {tf.id === 'custom' ? '' : 'Ini'}
-                                </button>
-                              ))}
+                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-0.5">Analitik Individu</p>
+                              <h4 className="text-2xl font-black leading-none">{individualData.user.name}</h4>
+                              <p className="text-slate-400 font-bold text-xs mt-1 uppercase tracking-widest">{individualData.user.role}</p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Presensi</p>
-                            <p className="text-3xl font-black text-slate-900 leading-none">{individualData.timeframeStats?.[individualTimeframe]?.attendanceRate || individualData.overallStats.attendanceRate}%</p>
+                        <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/50 mb-6 w-full overflow-x-auto no-scrollbar">
+                          {[
+                            { id: 'week', label: 'Minggu' },
+                            { id: 'month', label: 'Bulan' },
+                            { id: 'year', label: 'Tahun' },
+                            { id: 'custom', label: 'Filter' }
+                          ].map((tf) => (
+                            <button
+                              key={tf.id}
+                              onClick={() => {
+                                setIndividualTimeframe(tf.id);
+                                if (tf.id === 'custom') {
+                                  fetchIndividualReport(selectedUser.id, dateRange);
+                                } else {
+                                  fetchIndividualReport(selectedUser.id);
+                                }
+                              }}
+                              className={`flex-1 px-3 py-1.5 rounded-lg font-black text-[8px] uppercase tracking-widest transition-all whitespace-nowrap ${individualTimeframe === tf.id
+                                ? "bg-white text-blue-600 shadow-sm"
+                                : "text-slate-400 hover:text-slate-600"
+                                }`}
+                            >
+                              {tf.label} {tf.id === 'custom' ? '' : 'Ini'}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Presensi</p>
+                            <p className="text-2xl font-black text-slate-900">{individualData.timeframeStats?.[individualTimeframe]?.attendanceRate || individualData.overallStats.attendanceRate}%</p>
                           </div>
-                          <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Terlambat</p>
-                            <p className="text-3xl font-black text-orange-600 leading-none">{individualData.timeframeStats?.[individualTimeframe]?.lateRate || individualData.overallStats.lateRate}%</p>
+                          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Terlambat</p>
+                            <p className="text-2xl font-black text-orange-600">{individualData.timeframeStats?.[individualTimeframe]?.lateRate || individualData.overallStats.lateRate}%</p>
                           </div>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-3 gap-3">
-                          <div className="p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100/50 text-center">
-                            <p className="text-xl font-black text-emerald-600 leading-none">
+                        <div className="p-4 bg-orange-50/20 rounded-2xl border border-orange-100/50 flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-[8px] font-black text-orange-400 uppercase tracking-widest">Total Jam Telat ({individualTimeframe})</p>
+                            <p className="text-lg font-black text-orange-600 mt-0.5">
+                              {individualTimeframe === 'custom'
+                                ? (individualData.customStats?.total_telat_format || '0 menit')
+                                : (individualData.timeframeStats?.[individualTimeframe]?.total_telat_format || individualData.overallStats.total_telat_format || '0 menit')
+                              }
+                            </p>
+                          </div>
+                          <div className="bg-orange-100 text-orange-600 p-2 rounded-xl">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="p-3 bg-emerald-50/30 rounded-2xl border border-emerald-100/50 text-center">
+                            <p className="text-lg font-black text-emerald-600 leading-none">
                               {individualTimeframe === 'custom' ? individualData.customStats?.hadir : (individualData.timeframeStats?.[individualTimeframe]?.hadir ?? individualData.overallStats.hadir)}
                             </p>
                             <p className="text-[8px] font-black text-emerald-400 uppercase mt-1">Hadir</p>
                           </div>
-                          <div className="p-4 bg-orange-50/30 rounded-2xl border border-orange-100/50 text-center">
-                            <p className="text-xl font-black text-orange-600 leading-none">
+                          <div className="p-3 bg-orange-50/30 rounded-2xl border border-orange-100/50 text-center">
+                            <p className="text-lg font-black text-orange-600 leading-none">
                               {individualTimeframe === 'custom' ? individualData.customStats?.telat : (individualData.timeframeStats?.[individualTimeframe]?.telat ?? individualData.overallStats.telat)}
                             </p>
                             <p className="text-[8px] font-black text-orange-400 uppercase mt-1">Telat</p>
                           </div>
-                          <div className="p-4 bg-rose-50/30 rounded-2xl border border-rose-100/50 text-center">
-                            <p className="text-xl font-black text-rose-600 leading-none">
+                          <div className="p-3 bg-rose-50/30 rounded-2xl border border-rose-100/50 text-center">
+                            <p className="text-lg font-black text-rose-600 leading-none">
                               {individualTimeframe === 'custom' ? individualData.customStats?.absen : (individualData.timeframeStats?.[individualTimeframe]?.absen ?? individualData.overallStats.absen)}
                             </p>
                             <p className="text-[8px] font-black text-rose-400 uppercase mt-1">Absen</p>
@@ -766,22 +837,23 @@ export default function AttendanceReportPage() {
                         </div>
                       </div>
 
-                      <div className="mt-8 pt-8 border-t border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Status 7 Hari Terakhir</p>
+                      <div className="mt-6 pt-6 border-t border-slate-100">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Status 7 Hari Terakhir</p>
                         <div className="flex gap-2">
                           {individualData.weeklyTrend.map((day, idx) => (
-                            <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                            <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
                               <div
-                                className={`w-full aspect-square rounded-xl border flex items-center justify-center transition-all ${day.status === 'HADIR' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                                className={`w-full aspect-square rounded-lg border flex items-center justify-center transition-all ${day.status === 'HADIR' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
                                   day.status === 'TELAT' ? 'bg-orange-50 border-orange-100 text-orange-600' :
-                                    'bg-rose-50 border-rose-100 text-rose-600'
+                                    day.status === 'ABSEN' ? 'bg-rose-50 border-rose-100 text-rose-600' :
+                                      'bg-slate-50 border-slate-100 text-slate-300'
                                   }`}
                                 title={`${day.day}: ${day.status}`}
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   {day.status === 'HADIR' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />}
                                   {day.status === 'TELAT' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
-                                  {day.status === 'ABSEN' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />}
+                                  {(day.status === 'ABSEN' || day.status === 'ALPA') && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />}
                                 </svg>
                               </div>
                               <span className="text-[8px] font-black text-slate-400 uppercase">{day.day}</span>
@@ -792,35 +864,35 @@ export default function AttendanceReportPage() {
                     </div>
 
                     {/* User Chart Trend */}
-                    <div className="flex-1 bg-slate-50 rounded-4xl p-8 border border-slate-100 relative">
+                    <div className="flex-1 bg-slate-50 rounded-3xl p-6 border border-slate-100 relative min-h-[400px]">
                       {loadingUser && (
-                        <div className="absolute inset-0 bg-white/40 backdrop-blur-sm z-10 flex items-center justify-center rounded-4xl">
+                        <div className="absolute inset-0 bg-white/40 backdrop-blur-sm z-10 flex items-center justify-center rounded-3xl">
                           <div className="animate-spin w-8 h-8 border-[3px] border-blue-600 border-t-transparent rounded-full"></div>
                         </div>
                       )}
-                      <div className="mb-8 flex justify-between items-end">
+                      <div className="mb-6 flex justify-between items-end">
                         <div>
                           <h5 className="text-lg font-black text-slate-900">Grafik Kinerja Bulanan</h5>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Estimasi kehadiran (22 hari kerja/bulan)</p>
                         </div>
                         <div className="flex gap-4">
-                          <div className="flex items-center gap-2"><div className="w-2 h-2 bg-emerald-500 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Hadir</span></div>
-                          <div className="flex items-center gap-2"><div className="w-2 h-2 bg-orange-500 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Telat</span></div>
+                          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Hadir</span></div>
+                          <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Telat</span></div>
                         </div>
                       </div>
-                      <div className="h-70">
+                      <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={individualData.sixMonthTrend}>
+                          <BarChart data={individualData.sixMonthTrend} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                             <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} />
                             <Tooltip
                               cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }}
-                              contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                             />
-                            <Bar dataKey="present" fill="#10b981" radius={[6, 6, 0, 0]} barSize={20} />
-                            <Bar dataKey="late" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={20} />
-                            <Bar dataKey="absent" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={20} />
+                            <Bar dataKey="present" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
+                            <Bar dataKey="late" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={16} />
+                            <Bar dataKey="absent" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={16} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -920,6 +992,18 @@ export default function AttendanceReportPage() {
                             <div className="bg-rose-50/50 p-3 rounded-2xl text-center">
                               <p className="text-lg font-black text-rose-600 leading-none">{emp.absen}</p>
                               <p className="text-[8px] font-bold text-rose-400 uppercase mt-1">Absen</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 p-4 bg-slate-50 rounded-3xl border border-slate-100/50 flex items-center justify-between">
+                            <div>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Jam Keterlambatan</p>
+                              <p className="text-sm font-black text-orange-600 mt-0.5">{emp.total_telat_format || '0 menit'}</p>
+                            </div>
+                            <div className="bg-orange-100 text-orange-600 p-2 rounded-xl">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
                             </div>
                           </div>
                         </div>

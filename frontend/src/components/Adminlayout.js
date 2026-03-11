@@ -16,8 +16,10 @@ import {
   User,
   Settings,
   Lock,
-  Calendar
+  Calendar,
+  ClipboardCheck
 } from 'lucide-react';
+
 
 
 export default function AdminLayout({ children }) {
@@ -35,6 +37,11 @@ export default function AdminLayout({ children }) {
       href: "/dashboard",
       label: "Dashboard",
       icon: <LayoutDashboard className="w-5 h-5 mr-3" />
+    },
+    {
+      href: "/izin",
+      label: "Manajemen Izin",
+      icon: <ClipboardCheck className="w-5 h-5 mr-3" />
     },
     {
       href: "/laporan-absen",

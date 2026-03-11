@@ -181,6 +181,9 @@ class ReportController extends Controller
             }
 
             $today = Carbon::today();
+            $customStart = $request->start_date ? Carbon::parse($request->start_date) : null;
+            $customEnd = $request->end_date ? Carbon::parse($request->end_date) : Carbon::now();
+
             $startOfWeek = Carbon::now()->startOfWeek();
             $startOfMonth = Carbon::now()->startOfMonth();
             $startOfYear = Carbon::now()->startOfYear();
@@ -210,6 +213,34 @@ class ReportController extends Controller
                 $lateRate = $totalAttended > 0 ? round(($stats->telat_count / $totalAttended) * 100, 1) : 0;
                 $absenceRate = max(0, 100 - $attendanceRate);
 
+                // Hitung total jam telat (dalam menit)
+                $totalLateMinutes = 0;
+                if ($stats->telat_count > 0) {
+                    $lateAttendances = Kehadiran::where('user_id', $targetUserId)
+                        ->whereBetween('created_at', [$start, $end])
+                        ->where('status', 'TELAT')
+                        ->get();
+
+                    foreach ($lateAttendances as $attendance) {
+                        try {
+                            $checkIn = Carbon::parse($attendance->check_in_time);
+                            $office = Company::where('name', $attendance->office_name)->first();
+                            if (!$office) {
+                                $office = User::find($targetUserId)->company;
+                            }
+                            
+                            if ($office && $office->time_late) {
+                                $lateThreshold = Carbon::parse($office->time_late);
+                                if ($checkIn > $lateThreshold) {
+                                    $totalLateMinutes += $checkIn->diffInMinutes($lateThreshold);
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            continue;
+                        }
+                    }
+                }
+
                 return [
                     'hadir' => (int)$stats->hadir_count,
                     'telat' => (int)$stats->telat_count,
@@ -217,7 +248,11 @@ class ReportController extends Controller
                     'attendanceRate' => $attendanceRate,
                     'lateRate' => $lateRate,
                     'absenceRate' => $absenceRate,
-                    'totalWorkingDays' => $workingDays
+                    'totalWorkingDays' => $workingDays,
+                    'total_telat_menit' => $totalLateMinutes,
+                    'total_telat_format' => $totalLateMinutes > 0 ? 
+                        (floor($totalLateMinutes / 60) > 0 ? floor($totalLateMinutes / 60) . " jam " : "") . ($totalLateMinutes % 60) . " menit" 
+                        : "0 menit"
                 ];
             };
 
@@ -280,6 +315,7 @@ class ReportController extends Controller
                     'avatar' => strtoupper(substr($targetUser->name, 0, 1))
                 ],
                 'overallStats' => $timeframeStats['month'], // Default for backwards compatibility
+                'customStats' => $customStart ? $getStatsForRange($customStart, $customEnd) : null,
                 'timeframeStats' => $timeframeStats,
                 'weeklyTrend' => $weeklyTrend,
                 'sixMonthTrend' => $sixMonthTrend
@@ -291,38 +327,96 @@ class ReportController extends Controller
         }
     }
 
-    public function getEmployeesSummary()
+    public function getEmployeesSummary(Request $request)
     {
         try {
-            $startOfMonth = Carbon::now()->startOfMonth();
-            $workingDaysSoFar = now()->diffInDaysFiltered(function (Carbon $date) {
+            $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : Carbon::now()->startOfMonth();
+            $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now();
+
+            $workingDaysInRange = $startDate->diffInDaysFiltered(function (Carbon $date) {
                 return !$date->isWeekend();
-            }, $startOfMonth) + 1;
+            }, $endDate);
+
+            // If endDate is today and today is a weekday, include it if it's not already counted correctly by lib
+            // Carbon's diffInDaysFiltered might need +1 depending on inclusion of start/end
+            // Let's use a more robust way:
+            $workingDaysInRange = 0;
+            $tempDate = $startDate->copy();
+            while ($tempDate->lte($endDate)) {
+                if (!$tempDate->isWeekend()) {
+                    $workingDaysInRange++;
+                }
+                $tempDate->addDay();
+            }
 
             $summaries = User::whereIn('role', ['karyawan', 'magang'])
-                ->leftJoin('attendances', function($join) use ($startOfMonth) {
+                ->with(['company']) // Eager load company for time_late
+                ->leftJoin('attendances', function($join) use ($startDate, $endDate) {
                     $join->on('users.id', '=', 'attendances.user_id')
-                         ->whereBetween('attendances.created_at', [$startOfMonth, now()]);
+                         ->whereBetween('attendances.created_at', [$startDate, $endDate]);
                 })
                 ->select(
                     'users.id',
                     'users.name',
                     'users.role',
+                    'users.company_id',
                     DB::raw("COUNT(CASE WHEN attendances.status = 'HADIR' THEN 1 END) as hadir"),
                     DB::raw("COUNT(CASE WHEN attendances.status = 'TELAT' THEN 1 END) as telat")
                 )
-                ->groupBy('users.id', 'users.name', 'users.role')
+                ->groupBy('users.id', 'users.name', 'users.role', 'users.company_id')
                 ->get();
 
-            $result = $summaries->map(function($item) use ($workingDaysSoFar) {
+            $result = $summaries->map(function($item) use ($workingDaysInRange, $startDate, $endDate) {
                 $totalAttended = $item->hadir + $item->telat;
+
+                // Hitung total jam telat (dalam menit)
+                $totalLateMinutes = 0;
+                if ($item->telat > 0) {
+                    $lateAttendances = Kehadiran::where('user_id', $item->id)
+                        ->whereBetween('created_at', [$startDate, $endDate])
+                        ->where('status', 'TELAT')
+                        ->get();
+
+                    foreach ($lateAttendances as $attendance) {
+                        try {
+                            $checkIn = Carbon::parse($attendance->check_in_time);
+                            $office = Company::where('name', $attendance->office_name)->first();
+                            if (!$office) {
+                                $office = $item->company;
+                            }
+                            
+                            if ($office && $office->time_late) {
+                                $lateThreshold = Carbon::parse($office->time_late);
+                                if ($checkIn > $lateThreshold) {
+                                    $totalLateMinutes += $checkIn->diffInMinutes($lateThreshold);
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            continue;
+                        }
+                    }
+                }
+
+                // Format total jam telat
+                $formattedLate = "0 menit";
+                if ($totalLateMinutes > 0) {
+                    $hours = floor($totalLateMinutes / 60);
+                    $mins = $totalLateMinutes % 60;
+                    $parts = [];
+                    if ($hours > 0) $parts[] = $hours . " jam";
+                    if ($mins > 0) $parts[] = $mins . " menit";
+                    $formattedLate = implode(" ", $parts);
+                }
+
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
                     'role' => ucfirst($item->role),
                     'hadir' => (int)$item->hadir,
                     'telat' => (int)$item->telat,
-                    'absen' => (int)max(0, $workingDaysSoFar - $totalAttended),
+                    'absen' => (int)max(0, $workingDaysInRange - $totalAttended),
+                    'total_telat_menit' => $totalLateMinutes,
+                    'total_telat_format' => $formattedLate,
                     'avatar' => strtoupper(substr($item->name, 0, 1))
                 ];
             });

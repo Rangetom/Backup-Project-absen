@@ -5,11 +5,13 @@ import useAuthMiddleware from "@/hooks/auth";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/utils/axios";
 import Notification from "@/components/Notification";
-import * as faceapi from "@vladmandic/face-api";
+
+import Image from "next/image";
+
 
 
 export default function EmployeeHome() {
-  useAuthMiddleware();
+  // useAuthMiddleware();
   const { logout, user } = useAuth();
 
   const [isCapturing, setIsCapturing] = useState(false);
@@ -51,6 +53,62 @@ export default function EmployeeHome() {
     type: "success", // success | error
   });
 
+  // Izin (Permit) State
+  const [isPermitModalOpen, setIsPermitModalOpen] = useState(false);
+  const [permitDescription, setPermitDescription] = useState("");
+  const [permitPhoto, setPermitPhoto] = useState(null);
+  const [permitPhotoPreview, setPermitPhotoPreview] = useState(null);
+  const [isSubmittingPermit, setIsSubmittingPermit] = useState(false);
+
+  const handlePermitPhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPermitPhoto(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPermitPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const submitPermit = async (e) => {
+    e.preventDefault();
+    if (!permitDescription) {
+      showNotification("Keterangan izin wajib diisi", "error");
+      return;
+    }
+
+    setIsSubmittingPermit(true);
+    try {
+      const formData = new FormData();
+      formData.append('description', permitDescription);
+      if (permitPhoto) {
+        formData.append('photo', permitPhoto);
+      }
+
+      // NOTE: Backend endpoint is yet to be created. 
+      // This is a placeholder for the actual API call.
+      const response = await api.post("/attendance/permit", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      showNotification(response.data.message || "Izin berhasil diajukan", "success");
+      setIsPermitModalOpen(false);
+      setPermitDescription("");
+      setPermitPhoto(null);
+      setPermitPhotoPreview(null);
+      refreshData();
+    } catch (error) {
+      console.error("Gagal mengajukan izin:", error);
+      showNotification(error.response?.data?.message || "Gagal mengajukan izin. Pastikan backend sudah siap.", "error");
+    } finally {
+      setIsSubmittingPermit(false);
+    }
+  };
+
   const showNotification = (message, type = "success") => {
     setNotification({ show: true, message, type });
     setTimeout(() => {
@@ -62,6 +120,8 @@ export default function EmployeeHome() {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const detectionInterval = useRef(null);
+  const faceapiRef = useRef(null);
+
 
   // ===== DISTANCE CALCULATION (Haversine Formula) =====
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -161,6 +221,10 @@ export default function EmployeeHome() {
   useEffect(() => {
     const loadModels = async () => {
       try {
+        // Dynamic import to avoid SSR errors
+        const faceapi = await import("@vladmandic/face-api");
+        faceapiRef.current = faceapi;
+
         const MODEL_URL = "https://vladmandic.github.io/face-api/model/";
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -251,10 +315,10 @@ export default function EmployeeHome() {
 
     // Start face detection loop
     detectionInterval.current = setInterval(async () => {
-      if (videoRef.current && !capturedImage) {
-        const detections = await faceapi.detectAllFaces(
+      if (videoRef.current && !capturedImage && faceapiRef.current) {
+        const detections = await faceapiRef.current.detectAllFaces(
           videoRef.current,
-          new faceapi.TinyFaceDetectorOptions()
+          new faceapiRef.current.TinyFaceDetectorOptions()
         ).withFaceLandmarks();
 
         if (detections.length > 0) {
@@ -521,7 +585,7 @@ export default function EmployeeHome() {
                 <p className="text-gray-400 font-medium mb-8 max-w-sm">Pastikan Anda berada di area kantor untuk melakukan check-in</p>
 
                 {currentAtCompany && (
-                  <div className={`mb-8 p-6 rounded-[1.5rem] border-2 transition-all w-full max-w-md ${isInRange ? 'bg-green-50/50 border-green-100 text-green-800 shadow-sm' : 'bg-red-50/50 border-red-100 text-red-800 shadow-sm'}`}>
+                  <div className={`mb-8 p-6 rounded-3xl border-2 transition-all w-full max-w-md ${isInRange ? 'bg-green-50/50 border-green-100 text-green-800 shadow-sm' : 'bg-red-50/50 border-red-100 text-red-800 shadow-sm'}`}>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <div className={`p-2 rounded-xl ${isInRange ? 'bg-green-600 text-white' : 'bg-red-600 text-white shadow-lg shadow-red-200'}`}>
@@ -529,6 +593,7 @@ export default function EmployeeHome() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d={isInRange ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
                           </svg>
                         </div>
+
                         <p className="text-xs font-black uppercase tracking-widest leading-none">{isInRange ? 'Dalam Area' : 'Luar Area'}</p>
                       </div>
                       <button
@@ -573,8 +638,8 @@ export default function EmployeeHome() {
 
                 <button
                   onClick={startSelfie}
-                  disabled={!isInRange || (todayAttendance.has_checked_in && todayAttendance.has_checked_out) || !isModelsLoaded}
-                  className={`px-10 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all w-full max-w-sm shadow-xl ${(!isInRange || (todayAttendance.has_checked_in && todayAttendance.has_checked_out) || !isModelsLoaded)
+                  disabled={!isInRange || (todayAttendance.has_checked_in && (todayAttendance.has_checked_out || todayAttendance.status === 'IZIN' || todayAttendance.status === 'DITOLAK' || (todayAttendance.status === 'HADIR' && todayAttendance.description))) || !isModelsLoaded}
+                  className={`px-10 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all w-full max-w-sm shadow-xl ${(!isInRange || (todayAttendance.has_checked_in && (todayAttendance.has_checked_out || todayAttendance.status === 'IZIN' || todayAttendance.status === 'DITOLAK' || (todayAttendance.status === 'HADIR' && todayAttendance.description))) || !isModelsLoaded)
                     ? 'bg-gray-100 text-gray-300 cursor-not-allowed border-none'
                     : todayAttendance.has_checked_in
                       ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-orange-300 hover:shadow-orange-400 active:scale-98'
@@ -583,10 +648,35 @@ export default function EmployeeHome() {
                 >
                   {todayAttendance.has_checked_out
                     ? 'Sudah Absen Hari Ini'
-                    : todayAttendance.has_checked_in
-                      ? 'Check-out Pulang'
-                      : !isModelsLoaded ? 'Memuat Sensor...' : !isInRange ? 'Luar Area Kantor' : 'Mulai Absensi Sekarang'}
+                    : todayAttendance.status === 'IZIN'
+                      ? 'Izin Menunggu Proses'
+                      : todayAttendance.status === 'DITOLAK'
+                        ? 'Izin Ditolak'
+                        : (todayAttendance.status === 'HADIR' && todayAttendance.description)
+                          ? 'Izin Disetujui'
+                          : todayAttendance.has_checked_in
+                            ? 'Check-out Pulang'
+                            : !isModelsLoaded ? 'Memuat Sensor...' : !isInRange ? 'Luar Area Kantor' : 'Mulai Absensi Sekarang'}
                 </button>
+
+
+                <button
+                  onClick={() => setIsPermitModalOpen(true)}
+                  disabled={todayAttendance.has_checked_in || todayAttendance.has_checked_out}
+                  className={`mt-4 px-10 py-4 rounded-3xl font-black text-xs uppercase tracking-widest transition-all w-full max-w-sm border-2 ${todayAttendance.has_checked_in || todayAttendance.has_checked_out
+                    ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                    : 'bg-white text-gray-600 border-gray-100 hover:bg-gray-50 hover:border-gray-200 active:scale-98'
+                    }`}
+                >
+                  {todayAttendance.status === 'IZIN'
+                    ? 'Permohonan Izin Terkirim'
+                    : todayAttendance.status === 'DITOLAK'
+                      ? 'Permohonan Izin Ditolak'
+                      : (todayAttendance.status === 'HADIR' && todayAttendance.description)
+                        ? 'Izin Anda Disetujui'
+                        : 'Berhalangan? Ajukan Izin'}
+                </button>
+
               </div>
             </div>
           </div>
@@ -611,15 +701,25 @@ export default function EmployeeHome() {
                   <div className="flex-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Check-in</p>
                     <p className="font-black text-gray-900 text-lg">
-                      {todayAttendance.has_checked_in ? todayAttendance.check_in_time : '--:--'}
+                      {todayAttendance.has_checked_in && todayAttendance.status !== 'IZIN' && todayAttendance.status !== 'DITOLAK' && !(todayAttendance.status === 'HADIR' && todayAttendance.description)
+                        ? todayAttendance.check_in_time
+                        : '--:--'}
                     </p>
+
                   </div>
                   {todayAttendance.has_checked_in && (
-                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider ${todayAttendance.status === 'HADIR' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider ${todayAttendance.status === 'HADIR' ? 'bg-green-100 text-green-700' :
+                      todayAttendance.status === 'IZIN' ? 'bg-blue-100 text-blue-700' :
+                        todayAttendance.status === 'DITOLAK' ? 'bg-red-100 text-red-700' :
+                          'bg-orange-100 text-orange-700'
                       }`}>
-                      {todayAttendance.status === 'HADIR' ? 'Hadir' : 'Telat'}
+                      {todayAttendance.status === 'HADIR' ? (todayAttendance.description ? 'Izin Disetujui' : 'Hadir') :
+                        todayAttendance.status === 'IZIN' ? 'Izin Diproses' :
+                          todayAttendance.status === 'DITOLAK' ? 'Izin Ditolak' :
+                            'Telat'}
                     </span>
                   )}
+
                 </div>
 
                 {/* Check-out Time */}
@@ -632,8 +732,11 @@ export default function EmployeeHome() {
                   <div className="flex-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Check-out</p>
                     <p className="font-black text-gray-900 text-lg">
-                      {todayAttendance.has_checked_out ? todayAttendance.check_out_time : '--:--'}
+                      {todayAttendance.has_checked_out && todayAttendance.status !== 'IZIN' && todayAttendance.status !== 'DITOLAK' && !(todayAttendance.status === 'HADIR' && todayAttendance.description)
+                        ? todayAttendance.check_out_time
+                        : '--:--'}
                     </p>
+
                   </div>
                 </div>
 
@@ -721,8 +824,16 @@ export default function EmployeeHome() {
                     style={{ transform: "scaleX(-1)" }}
                   />
                 ) : (
-                  <img src={capturedImage} className="w-full h-full object-cover" alt="Captured" />
+                  <div className="w-full h-full relative">
+                    <Image
+                      src={capturedImage}
+                      alt="Captured"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
                 )}
+
                 {/* Overlay guides */}
                 {!capturedImage && (
                   <div className="absolute inset-0 border-[3rem] border-black/10 flex items-center justify-center pointer-events-none">
@@ -739,14 +850,15 @@ export default function EmployeeHome() {
                     <button
                       onClick={takePhoto}
                       disabled={!isLivenessVerified}
-                      className={`px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all flex-1 ${!isLivenessVerified ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-200 hover:scale-105 active:scale-95'}`}
+                      className={`px-8 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all flex-1 ${!isLivenessVerified ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-200 hover:scale-105 active:scale-95'}`}
                     >
                       Ambil Foto
                     </button>
                     <button
                       onClick={closeSelfie}
-                      className="bg-gray-100 text-gray-500 px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all flex-1"
+                      className="bg-gray-100 text-gray-500 px-8 py-5 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all flex-1"
                     >
+
                       Batal
                     </button>
                   </>
@@ -754,14 +866,15 @@ export default function EmployeeHome() {
                   <>
                     <button
                       onClick={() => setCapturedImage(null)}
-                      className="bg-orange-100 text-orange-600 px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest hover:bg-orange-200 transition-all flex-1"
+                      className="bg-orange-100 text-orange-600 px-8 py-5 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-orange-200 transition-all flex-1"
                     >
                       Ulangi Foto
                     </button>
                     <button
                       onClick={todayAttendance.has_checked_in ? submitCheckOut : submitCheckIn}
-                      className={`px-8 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all shadow-xl flex-1 hover:scale-105 active:scale-95 ${todayAttendance.has_checked_in ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'} text-white`}
+                      className={`px-8 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all shadow-xl flex-1 hover:scale-105 active:scale-95 ${todayAttendance.has_checked_in ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'} text-white`}
                     >
+
                       Kirim Sekarang
                     </button>
                   </>
@@ -780,6 +893,104 @@ export default function EmployeeHome() {
           </div>
         </div>
       )}
+      {/* Izin Modal */}
+      {isPermitModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-4xl w-full max-w-md overflow-hidden shadow-2xl animate-scaleIn">
+
+            <div className="bg-blue-600 text-white p-6 flex items-center justify-between">
+              <span className="font-black text-sm uppercase tracking-[0.2em]">Pengajuan Izin</span>
+              <button onClick={() => setIsPermitModalOpen(false)} className="p-1 hover:bg-white/10 rounded-lg transition">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={submitPermit} className="p-6 md:p-8 space-y-6">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Keterangan Izin</label>
+                <textarea
+                  required
+                  value={permitDescription}
+                  onChange={(e) => setPermitDescription(e.target.value)}
+                  placeholder="Misal: Sakit, Ada keperluan mendadak, dll."
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm font-medium min-h-[120px] resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Unggah Foto (Opsional)</label>
+                <div className="relative group">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePermitPhotoChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center group-hover:bg-gray-100 transition-all">
+                    {permitPhotoPreview ? (
+                      <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-md">
+                        <div className="w-full h-full relative">
+                          <Image
+                            src={permitPhotoPreview}
+                            alt="Preview"
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+
+                            e.preventDefault();
+                            setPermitPhoto(null);
+                            setPermitPhotoPreview(null);
+                          }}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-lg shadow-lg hover:bg-red-600 transition z-20"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="bg-white p-3 rounded-xl shadow-sm text-gray-400 mb-3">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <p className="text-xs font-bold text-gray-500">Klik atau geser foto ke sini</p>
+                        <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-medium">JPEG, PNG (Max 5MB)</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPermitModalOpen(false)}
+                  className="flex-1 bg-gray-100 text-gray-500 py-4 rounded-3xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPermit}
+                  className={`flex-1 py-4 rounded-3xl font-black text-xs uppercase tracking-widest transition-all shadow-xl ${isSubmittingPermit ? 'bg-gray-100 text-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'}`}
+                >
+
+                  {isSubmittingPermit ? 'Mengirim...' : 'Ajukan Izin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
