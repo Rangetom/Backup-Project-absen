@@ -313,13 +313,13 @@ export default function DashboardPage() {
                         <div className="flex flex-col items-center gap-1">
                           <span
                             onClick={(e) => {
-                              if (user.role === 'admin') {
+                              if (user?.role === 'admin') {
                                 e.stopPropagation();
                                 setAttendanceToUpdate(emp);
                                 setIsStatusUpdateOpen(true);
                               }
                             }}
-                            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border transition-all ${user.role === 'admin' ? 'cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md' : ''} ${emp.status === 'HADIR' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                            className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border transition-all ${user?.role === 'admin' ? 'cursor-pointer hover:scale-105 active:scale-95 hover:shadow-md' : ''} ${emp.status === 'HADIR' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                               emp.status === 'IZIN' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                                 emp.status === 'ALPA' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                                   'bg-orange-50 text-orange-600 border-orange-100'

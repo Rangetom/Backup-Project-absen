@@ -285,7 +285,7 @@ export default function CompaniesPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Manajemen Kantor</h2>
-                        <p className="text-slate-500 font-bold text-sm mt-1">Kelola data cabang dan titik lokasi presensi AttendTrack</p>
+                        <p className="text-slate-500 font-bold text-sm mt-1">Kelola data cabang dan titik lokasi presensi Magau Tracker</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <button

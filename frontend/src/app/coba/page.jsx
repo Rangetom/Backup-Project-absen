@@ -118,7 +118,7 @@ export default function AttendanceReportPage() {
       // --- BRANDING HEADER ---
       worksheet.mergeCells('B2:C3');
       const brandCell = worksheet.getCell('B2');
-      brandCell.value = "ATTENDTRACK";
+      brandCell.value = "MAGAU TRACKER";
       brandCell.font = { name: 'Arial Black', size: 20, color: { argb: 'FF1E40AF' } };
       brandCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
@@ -272,7 +272,7 @@ export default function AttendanceReportPage() {
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `AttendTrack_Executive_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      anchor.download = `MagauTracker_Executive_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
       anchor.click();
       window.URL.revokeObjectURL(url);
 
@@ -319,7 +319,7 @@ export default function AttendanceReportPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Analisis Kehadiran</h2>
-            <p className="text-slate-500 font-bold text-sm mt-1">Visualisasi data dan analitik komprehensif sistem AttendTrack</p>
+            <p className="text-slate-500 font-bold text-sm mt-1">Visualisasi data dan analitik komprehensif sistem Magau Tracker</p>
           </div>
           <button
             onClick={handleExport}
@@ -397,7 +397,7 @@ export default function AttendanceReportPage() {
               <h3 className="text-xl font-black text-slate-900 tracking-tight">Trend 6 Bulan Terakhir</h3>
               <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Pola kehadiran historis sistem</p>
             </div>
-            <div className="h-[350px]">
+            <div className="h-87.5">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={sixMonthTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -423,7 +423,7 @@ export default function AttendanceReportPage() {
                 <h3 className="text-xl font-black text-slate-900 tracking-tight">Aktivitas Mingguan</h3>
                 <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Breakdown performa 7 hari terakhir</p>
               </div>
-              <div className="h-[280px]" ref={barChartRef}>
+              <div className="h-70" ref={barChartRef}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={weeklyTrend}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -444,7 +444,7 @@ export default function AttendanceReportPage() {
                 <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Status kehadiran real-time</p>
               </div>
               <div className="flex flex-col md:flex-row items-center justify-around gap-8" ref={pieChartRef}>
-                <div className="w-[180px] h-[180px]">
+                <div className="w-45 h-45">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={todayDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" stroke="none">
@@ -478,7 +478,7 @@ export default function AttendanceReportPage() {
               <h3 className="text-xl font-black text-slate-900 tracking-tight">Komparasi Penempatan</h3>
               <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Efektivitas presensi berdasarkan lokasi (%)</p>
             </div>
-            <div className="h-[350px]">
+            <div className="h-87.5">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={departmentStats} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -497,7 +497,7 @@ export default function AttendanceReportPage() {
               <h3 className="text-xl font-black text-slate-900 tracking-tight">Analisa Waktu Kedatangan</h3>
               <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Distribusi jam masuk karyawan hari ini</p>
             </div>
-            <div className="h-[350px]">
+            <div className="h-87.5">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={timeDistribution}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

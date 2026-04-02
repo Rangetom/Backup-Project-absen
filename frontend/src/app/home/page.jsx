@@ -27,6 +27,7 @@ export default function EmployeeHome() {
   const [faceDetectionMessage, setFaceDetectionMessage] = useState("Memuat sensor wajah...");
   const [companies, setCompanies] = useState([]);
   const [currentAtCompany, setCurrentAtCompany] = useState(null);
+  const [isLocationMocked, setIsLocationMocked] = useState(false);
 
   // State for today's attendance and monthly stats
   const [todayAttendance, setTodayAttendance] = useState({
@@ -140,72 +141,98 @@ export default function EmployeeHome() {
   };
 
   // ===== GPS & REVERSE GEOCODING =====
-  const getLocation = useCallback(async () => {
+  const processLocation = useCallback(async (pos) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    setLocation({ latitude: lat, longitude: lng });
+
+    // Calculate distance against ALL companies
+    if (companies.length > 0) {
+      let foundInRange = false;
+      let nearestComp = null;
+      let minDistance = Infinity;
+
+      companies.forEach(comp => {
+        const officeLat = parseFloat(comp.latitude);
+        const officeLng = parseFloat(comp.longitude);
+
+        const dist = calculateDistance(officeLat, officeLng, lat, lng);
+
+        if (dist <= comp.radius_km) {
+          foundInRange = true;
+          nearestComp = comp;
+          setDistance(dist);
+        }
+
+        if (dist < minDistance) {
+          minDistance = dist;
+          if (!foundInRange) {
+            nearestComp = comp;
+            setDistance(dist);
+          }
+        }
+      });
+
+      setIsInRange(foundInRange);
+      setCurrentAtCompany(nearestComp);
+    } else if (user?.company) {
+      const officeLat = parseFloat(user.company.latitude);
+      const officeLng = parseFloat(user.company.longitude);
+
+      const dist = calculateDistance(officeLat, officeLng, lat, lng);
+      setDistance(dist);
+      setIsInRange(dist <= user.company.radius_km);
+      setCurrentAtCompany(user.company);
+    }
+
+    // Fetch alamat menggunakan Nominatim API (OpenStreetMap)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+      );
+      const data = await res.json();
+      const addr = data.display_name || "Lokasi tidak diketahui";
+      setAddress(addr);
+    } catch (error) {
+      console.error("Gagal fetch alamat:", error);
+      setAddress("Lokasi tidak diketahui");
+    }
+  }, [companies, user]);
+
+  const getLocation = useCallback(async (isMock = false) => {
     // Set loading state if needed
     setAddress("Mencari lokasi...");
 
+    if (isMock) {
+      const mockLat = companies.length > 0 ? parseFloat(companies[0].latitude) : (user?.company ? parseFloat(user.company.latitude) : -6.200000);
+      const mockLng = companies.length > 0 ? parseFloat(companies[0].longitude) : (user?.company ? parseFloat(user.company.longitude) : 106.816666);
+      
+      const pos = { coords: { latitude: mockLat, longitude: mockLng } };
+      setIsLocationMocked(true);
+      processLocation(pos);
+      return;
+    }
+
+    setIsLocationMocked(false);
+
+    if (!navigator.geolocation) {
+      alert("Geolocation tidak didukung oleh browser ini.");
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setLocation({ latitude: lat, longitude: lng });
-
-        // Calculate distance against ALL companies
-        if (companies.length > 0) {
-          let foundInRange = false;
-          let nearestComp = null;
-          let minDistance = Infinity;
-
-          companies.forEach(comp => {
-            const officeLat = parseFloat(comp.latitude);
-            const officeLng = parseFloat(comp.longitude);
-
-            const dist = calculateDistance(officeLat, officeLng, lat, lng);
-
-            if (dist <= comp.radius_km) {
-              foundInRange = true;
-              nearestComp = comp;
-              setDistance(dist);
-            }
-
-            if (dist < minDistance) {
-              minDistance = dist;
-              if (!foundInRange) {
-                nearestComp = comp;
-                setDistance(dist);
-              }
-            }
-          });
-
-          setIsInRange(foundInRange);
-          setCurrentAtCompany(nearestComp);
-        } else if (user?.company) {
-          const officeLat = parseFloat(user.company.latitude);
-          const officeLng = parseFloat(user.company.longitude);
-
-          const dist = calculateDistance(officeLat, officeLng, lat, lng);
-          setDistance(dist);
-          setIsInRange(dist <= user.company.radius_km);
-          setCurrentAtCompany(user.company);
-        }
-
-        // Fetch alamat menggunakan Nominatim API (OpenStreetMap)
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
-          );
-          const data = await res.json();
-          const addr = data.display_name || "Lokasi tidak diketahui";
-          setAddress(addr);
-        } catch (error) {
-          console.error("Gagal fetch alamat:", error);
-          setAddress("Lokasi tidak diketahui");
-        }
-      },
+      processLocation,
       (err) => {
+        // Jika gagal karena insecure context (HTTP) atau izin ditolak di lokal, 
+        // otomatis gunakan simulasi agar tidak menghambat development.
+        if (window.isSecureContext === false || err.code === 1) {
+          console.warn("Geolocation blocked or insecure context. Using mock location for development.");
+          getLocation(true);
+          return;
+        }
+
         let msg = "Izin lokasi ditolak";
-        if (err.code === 1) msg = "Izin lokasi ditolak. Aktifkan GPS di browser.";
-        else if (err.code === 2) msg = "Posisi tidak tersedia.";
+        if (err.code === 2) msg = "Posisi tidak tersedia.";
         else if (err.code === 3) msg = "Waktu pencarian lokasi habis.";
         alert(msg);
       },
@@ -215,7 +242,9 @@ export default function EmployeeHome() {
         maximumAge: 0
       }
     );
-  }, [companies, user]);
+  }, [companies, user, processLocation]);
+
+
 
   // ===== FACE API MODELS LOADING =====
   useEffect(() => {
@@ -528,7 +557,7 @@ export default function EmployeeHome() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h1 className="text-xl font-black text-gray-900 tracking-tight">AttendTrack</h1>
+            <h1 className="text-xl font-black text-gray-900 tracking-tight">Magau Tracker</h1>
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-6">
@@ -566,7 +595,7 @@ export default function EmployeeHome() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 md:gap-8">
           {/* Left Column - Check-In Card (Wider) */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-[2rem] shadow-xl shadow-blue-900/5 border border-white p-6 md:p-10 h-full flex flex-col items-center justify-center relative overflow-hidden group">
+            <div className="bg-white rounded-4xl shadow-xl shadow-blue-900/5 border border-white p-6 md:p-10 h-full flex flex-col items-center justify-center relative overflow-hidden group">
               {/* Background Glow */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-blue-100 group-hover:scale-150 duration-700"></div>
 
@@ -574,7 +603,7 @@ export default function EmployeeHome() {
                 {/* Visual Icon */}
                 <div className="relative mb-8">
                   <div className="absolute inset-0 bg-blue-600 blur-2xl opacity-20 animate-pulse"></div>
-                  <div className="bg-blue-600 rounded-[2rem] p-8 md:p-10 text-white shadow-2xl shadow-blue-200 relative">
+                  <div className="bg-blue-600 rounded-4xl p-8 md:p-10 text-white shadow-2xl shadow-blue-200 relative">
                     <svg className="w-16 h-16 md:w-20 md:h-20" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm-2 8h8v8H3v-8zm2 2v4h4v-4H5zm8-12v8h8V3h-8zm6 6h-4V5h4v4zm-6 4h2v2h-2v-2zm2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm4 0h2v2h-2v-2zm2-2h2v2h-2v-2zm0-4h2v2h-2v-2zm-4 0h2v2h-2v-2z" />
                     </svg>
@@ -596,12 +625,27 @@ export default function EmployeeHome() {
 
                         <p className="text-xs font-black uppercase tracking-widest leading-none">{isInRange ? 'Dalam Area' : 'Luar Area'}</p>
                       </div>
-                      <button
-                        onClick={getLocation}
-                        className="text-[10px] bg-white px-3 py-1.5 rounded-xl border border-gray-100 font-black uppercase tracking-wider hover:bg-gray-50 active:scale-95 transition shadow-sm"
-                      >
-                        Refresh GPS
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => getLocation(false)}
+                          className="text-[10px] bg-white px-3 py-1.5 rounded-xl border border-gray-100 font-black uppercase tracking-wider hover:bg-gray-50 active:scale-95 transition shadow-sm"
+                        >
+                          Refresh GPS
+                        </button>
+                        {isLocationMocked && (
+                          <div className="text-[9px] bg-blue-100 text-blue-700 px-2 py-1 rounded-lg font-bold uppercase tracking-tight text-center">
+                            Mode Simulasi Aktif
+                          </div>
+                        )}
+                        {!isLocationMocked && window.isSecureContext === false && (
+                          <button
+                            onClick={() => getLocation(true)}
+                            className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl border border-blue-100 font-black uppercase tracking-wider hover:bg-blue-100 active:scale-95 transition shadow-sm"
+                          >
+                            Simulasi Lokasi
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-1 text-left">
@@ -668,11 +712,11 @@ export default function EmployeeHome() {
                     : 'bg-white text-gray-600 border-gray-100 hover:bg-gray-50 hover:border-gray-200 active:scale-98'
                     }`}
                 >
-                  {todayAttendance.status === 'IZIN'
+                  {todayAttendance.status === 'PENGAJUAN'
                     ? 'Permohonan Izin Terkirim'
                     : todayAttendance.status === 'DITOLAK'
                       ? 'Permohonan Izin Ditolak'
-                      : (todayAttendance.status === 'HADIR' && todayAttendance.description)
+                      : todayAttendance.status === 'IZIN'
                         ? 'Izin Anda Disetujui'
                         : 'Berhalangan? Ajukan Izin'}
                 </button>
@@ -684,7 +728,7 @@ export default function EmployeeHome() {
           {/* Right Column - Status Cards */}
           <div className="lg:col-span-2 space-y-6 md:space-y-8">
             {/* Today's Status Card */}
-            <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 border border-white p-6 md:p-8">
+            <div className="bg-white rounded-4xl shadow-xl shadow-gray-200/50 border border-white p-6 md:p-8">
               <h3 className="text-lg font-black text-gray-900 mb-6 flex items-center">
                 <span className="w-1.5 h-6 bg-blue-600 rounded-full mr-3"></span>
                 Status Hari Ini
@@ -701,7 +745,7 @@ export default function EmployeeHome() {
                   <div className="flex-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Check-in</p>
                     <p className="font-black text-gray-900 text-lg">
-                      {todayAttendance.has_checked_in && todayAttendance.status !== 'IZIN' && todayAttendance.status !== 'DITOLAK' && !(todayAttendance.status === 'HADIR' && todayAttendance.description)
+                      {todayAttendance.has_checked_in && todayAttendance.status !== 'IZIN' && todayAttendance.status !== 'DITOLAK' && todayAttendance.status !== 'PENGAJUAN'
                         ? todayAttendance.check_in_time
                         : '--:--'}
                     </p>
@@ -713,10 +757,11 @@ export default function EmployeeHome() {
                         todayAttendance.status === 'DITOLAK' ? 'bg-red-100 text-red-700' :
                           'bg-orange-100 text-orange-700'
                       }`}>
-                      {todayAttendance.status === 'HADIR' ? (todayAttendance.description ? 'Izin Disetujui' : 'Hadir') :
-                        todayAttendance.status === 'IZIN' ? 'Izin Diproses' :
-                          todayAttendance.status === 'DITOLAK' ? 'Izin Ditolak' :
-                            'Telat'}
+                      {todayAttendance.status === 'HADIR' ? 'Hadir' :
+                        todayAttendance.status === 'PENGAJUAN' ? 'Izin Diproses' :
+                          todayAttendance.status === 'IZIN' ? 'Izin Disetujui' :
+                            todayAttendance.status === 'DITOLAK' ? 'Izin Ditolak' :
+                              'Telat'}
                     </span>
                   )}
 
@@ -732,7 +777,7 @@ export default function EmployeeHome() {
                   <div className="flex-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Check-out</p>
                     <p className="font-black text-gray-900 text-lg">
-                      {todayAttendance.has_checked_out && todayAttendance.status !== 'IZIN' && todayAttendance.status !== 'DITOLAK' && !(todayAttendance.status === 'HADIR' && todayAttendance.description)
+                      {todayAttendance.has_checked_out && todayAttendance.status !== 'IZIN' && todayAttendance.status !== 'DITOLAK' && todayAttendance.status !== 'PENGAJUAN'
                         ? todayAttendance.check_out_time
                         : '--:--'}
                     </p>
@@ -771,7 +816,7 @@ export default function EmployeeHome() {
             </div>
 
             {/* Monthly Stats Card - Fixed responsiveness for smaller screens */}
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] shadow-2xl shadow-blue-200 p-8 text-white relative overflow-hidden group">
+            <div className="bg-linear-to-br from-blue-600 to-indigo-700 rounded-4xl shadow-2xl shadow-blue-200 p-8 text-white relative overflow-hidden group">
               <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
 
               <h3 className="text-lg font-black mb-8 relative z-10 flex items-center">
@@ -814,7 +859,7 @@ export default function EmployeeHome() {
             </div>
 
             <div className="p-6 md:p-8 bg-gray-50 flex flex-col items-center">
-              <div className="relative w-full aspect-[4/3] bg-black rounded-[2rem] overflow-hidden shadow-inner border-4 border-white">
+              <div className="relative w-full aspect-4/3 bg-black rounded-4xl overflow-hidden shadow-inner border-4 border-white">
                 {!capturedImage ? (
                   <video
                     ref={videoRef}
@@ -915,7 +960,7 @@ export default function EmployeeHome() {
                   value={permitDescription}
                   onChange={(e) => setPermitDescription(e.target.value)}
                   placeholder="Misal: Sakit, Ada keperluan mendadak, dll."
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm font-medium min-h-[120px] resize-none"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-4 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm font-medium min-h-30 resize-none"
                 />
               </div>
 

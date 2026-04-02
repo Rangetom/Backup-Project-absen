@@ -30,7 +30,7 @@ export default function AdminIzinPage() {
   const fetchPermits = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get("/attendances?status=IZIN");
+      const res = await api.get("/attendances?status=PENGAJUAN");
       setPermits(res.data);
     } catch (err) {
       console.error("Failed to fetch permits:", err);
@@ -57,7 +57,7 @@ export default function AdminIzinPage() {
       text: `Apakah Anda yakin ingin ${actionLabel.toLowerCase()} permohonan izin ini?`,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: status === 'HADIR' ? '#10b981' : '#ef4444',
+      confirmButtonColor: status === 'IZIN' ? '#10b981' : '#ef4444',
       cancelButtonColor: '#64748b',
       confirmButtonText: 'Ya, Lanjutkan',
       cancelButtonText: 'Batal',
@@ -67,7 +67,7 @@ export default function AdminIzinPage() {
     if (result.isConfirmed) {
       try {
         await api.put(`/attendances/${id}/status`, { status });
-        showNotification(`Izin berhasil ${status === 'HADIR' ? 'disetujui' : 'ditolak'}`, "success");
+        showNotification(`Izin berhasil ${status === 'IZIN' ? 'disetujui' : 'ditolak'}`, "success");
         fetchPermits();
       } catch (err) {
         console.error("Action error:", err);
@@ -144,76 +144,106 @@ export default function AdminIzinPage() {
 
                 ) : (
                   permits.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/30 transition-colors group">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-sm">
-                            {item.user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    <tr key={item.id} className="hover:bg-linear-to-br transition-all duration-300 group border-b border-slate-50 last:border-0">
+                      <td className="px-8 py-7">
+                        <div className="flex items-center gap-5">
+                          <div className="relative">
+                            <div className="w-14 h-14 bg-linear-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white font-black text-base shadow-lg shadow-blue-100 ring-4 ring-white">
+                              {item.user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+                            </div>
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full shadow-sm" title="Online"></div>
                           </div>
                           <div>
-                            <p className="font-black text-slate-900 leading-tight">{item.user.name}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{item.user.company}</p>
+                            <p className="font-black text-slate-900 text-base leading-tight group-hover:text-blue-600 transition-colors">{item.user.name}</p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg font-black uppercase tracking-widest">{item.user.company}</span>
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-600 max-w-md line-clamp-2">{item.description || 'Tanpa keterangan'}</p>
+                      <td className="px-8 py-7">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2 text-blue-600">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Keterangan Izin</span>
+                          </div>
+                          <p className="text-sm font-bold text-slate-600 max-w-sm line-clamp-2 leading-relaxed italic pr-4">&quot;{(item.description || 'Tanpa keterangan').trim()}&quot;</p>
+                        </div>
                       </td>
-                      <td className="px-8 py-6 text-center">
+                      <td className="px-8 py-7 text-center">
                         {item.photo_url ? (
-                          <button
-                            onClick={() => Swal.fire({
-                              imageUrl: item.photo_url,
-                              imageAlt: 'Lampiran Izin',
-                              confirmButtonText: 'Tutup',
-                              confirmButtonColor: '#3b82f6',
-                              customClass: {
-                                popup: 'rounded-4xl',
-                                confirmButton: 'rounded-xl px-8 py-3 font-black text-xs uppercase tracking-widest'
-                              }
-                            })}
-                            className="group relative inline-block rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:scale-105 border-2 border-slate-50 hover:border-blue-200"
-                          >
-                            <div className="w-14 h-14 relative">
+                          <div className="flex flex-col items-center gap-2">
+                            <button
+                              onClick={() => Swal.fire({
+                                title: '<span class="text-xl font-black text-slate-900">Lampiran Bukti Izin</span>',
+                                html: `
+                                  <div class="mt-4 rounded-3xl overflow-hidden border-4 border-slate-50 shadow-inner bg-slate-100">
+                                    <img src="${item.photo_url}" class="w-full h-auto object-contain max-h-[70vh]" />
+                                  </div>
+                                  <div class="mt-6 flex flex-col gap-2 text-left bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nama Karyawan</p>
+                                    <p class="text-sm font-black text-slate-900">${item.user.name}</p>
+                                  </div>
+                                `,
+                                width: '600px',
+                                showConfirmButton: true,
+                                confirmButtonText: 'Tutup Preview',
+                                confirmButtonColor: '#0f172a',
+                                padding: '2rem',
+                                customClass: {
+                                  popup: 'rounded-[2.5rem] border-0 shadow-2xl',
+                                  confirmButton: 'rounded-2xl px-10 py-4 font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200'
+                                }
+                              })}
+                              className="group relative block w-16 h-16 rounded-[1.25rem] overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 ring-2 ring-slate-50 hover:ring-blue-100"
+                            >
                               <Image
                                 src={item.photo_url}
                                 alt="Lampiran"
                                 fill
-                                className="object-cover"
+                                className="object-cover transition-transform duration-700 group-hover:scale-110"
                               />
-                            </div>
-                            <div className="absolute inset-0 bg-blue-600/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                              <Eye className="w-5 h-5 text-white" />
-                            </div>
-                          </button>
+                              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md border border-white/30 transform scale-75 group-hover:scale-100 transition-transform duration-500">
+                                  <Eye className="w-5 h-5 text-white" strokeWidth={2.5} />
+                                </div>
+                              </div>
+                            </button>
+                            <span className="text-[10px] font-black text-blue-500 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-opacity">Zoom Foto</span>
+                          </div>
                         ) : (
-                          <div className="flex flex-col items-center gap-1 opacity-20">
-                            <ImageIcon className="w-6 h-6 text-slate-400" />
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No Photo</span>
+                          <div className="flex flex-col items-center gap-1 opacity-25">
+                            <div className="p-3 bg-slate-100 rounded-2xl">
+                              <ImageIcon className="w-6 h-6 text-slate-400" />
+                            </div>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">No Image</span>
                           </div>
                         )}
-
                       </td>
-                      <td className="px-8 py-6 text-center whitespace-nowrap">
-                        <p className="text-xs font-black text-slate-900">{item.date}</p>
+                      <td className="px-8 py-7 text-center">
+                        <div className="inline-flex flex-col items-center bg-slate-50 px-5 py-2.5 rounded-2xl border border-slate-100/50">
+                          <Clock className="w-3.5 h-3.5 text-slate-400 mb-1" />
+                          <p className="text-xs font-black text-slate-900">{item.date}</p>
+                        </div>
                       </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-8 py-7 text-right">
+                        <div className="flex items-center justify-end gap-3 translate-x-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500">
                           <button
-                            onClick={() => handleAction(item.id, 'HADIR', 'Terima')}
-                            className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all duration-300 shadow-sm shadow-emerald-100 active:scale-90"
-                            title="Terima Izin"
+                            onClick={() => handleAction(item.id, 'IZIN', 'Terima')}
+                            className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all duration-300 shadow-sm shadow-emerald-100 hover:shadow-emerald-200 active:scale-95 group/btn"
+                            title="Setujui Izin"
                           >
-                            <Check className="w-5 h-5" strokeWidth={3} />
+                            <Check className="w-5 h-5 transform group-hover/btn:scale-125 transition-transform" strokeWidth={3} />
+                            <span className="text-xs font-black uppercase tracking-wider hidden xl:block">Setujui</span>
                           </button>
                           <button
                             onClick={() => handleAction(item.id, 'DITOLAK', 'Tolak')}
-                            className="bg-rose-50 text-rose-600 p-3 rounded-2xl hover:bg-rose-600 hover:text-white transition-all duration-300 shadow-sm shadow-rose-100 active:scale-90"
+                            className="flex items-center gap-2 bg-rose-50 text-rose-600 px-5 py-3 rounded-2xl hover:bg-rose-600 hover:text-white transition-all duration-300 shadow-sm shadow-rose-100 hover:shadow-rose-200 active:scale-95 group/btn"
                             title="Tolak Izin"
                           >
-                            <X className="w-5 h-5" strokeWidth={3} />
+                            <X className="w-5 h-5 transform group-hover/btn:scale-125 transition-transform" strokeWidth={3} />
+                            <span className="text-xs font-black uppercase tracking-wider hidden xl:block">Tolak</span>
                           </button>
-
                         </div>
                       </td>
                     </tr>
@@ -234,7 +264,7 @@ export default function AdminIzinPage() {
             <div className="text-center md:text-left">
               <h4 className="text-xl font-black tracking-tight mb-2">Kebijakan Persetujuan</h4>
               <p className="text-slate-400 font-bold text-xs leading-relaxed max-w-2xl">
-                Setiap permohonan izin yang disetujui akan mengubah status presensi karyawan menjadi <span className="text-emerald-400 uppercase tracking-widest px-1.5 py-0.5 bg-emerald-400/10 rounded-md ml-1">&apos;HADIR&apos;</span>.
+                Setiap permohonan izin yang disetujui akan mengubah status presensi karyawan menjadi <span className="text-emerald-400 uppercase tracking-widest px-1.5 py-0.5 bg-emerald-400/10 rounded-md ml-1">&apos;IZIN&apos;</span>.
                 Jika ditolak, status akan berubah menjadi <span className="text-rose-400 uppercase tracking-widest px-1.5 py-0.5 bg-rose-400/10 rounded-md ml-1">&apos;DITOLAK&apos;</span>.
                 Tindakan ini bersifat permanen dan akan mempengaruhi kalkulasi laporan bulanan.
               </p>

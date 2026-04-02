@@ -54,7 +54,7 @@ export default function LoginPage() {
                   <Calendar className="w-4 h-4 text-blue-600" />
                 </div>
               </div>
-              <h1 className="text-lg font-black text-white tracking-tight uppercase">AttendTrack</h1>
+              <h1 className="text-lg font-black text-white tracking-tight uppercase">Magau Tracker</h1>
             </div>
 
             <h2 className="text-2xl font-black text-white tracking-tight leading-tight">

@@ -148,7 +148,7 @@ export default function AttendanceReportPage() {
       // --- BRANDING HEADER ---
       worksheet.mergeCells('B2:C3');
       const brandCell = worksheet.getCell('B2');
-      brandCell.value = "ATTENDTRACK";
+      brandCell.value = "MAGAU TRACKER";
       brandCell.font = { name: 'Arial Black', size: 20, color: { argb: 'FF1E40AF' } };
       brandCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
@@ -352,7 +352,7 @@ export default function AttendanceReportPage() {
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `AttendTrack_Executive_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      anchor.download = `MagauTracker_Executive_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
       anchor.click();
       window.URL.revokeObjectURL(url);
 
@@ -419,7 +419,7 @@ export default function AttendanceReportPage() {
     } finally {
       setLoadingUser(false);
     }
-  }, [dateRange]);
+  }, []);
 
   useEffect(() => {
     if (selectedUser) {
@@ -463,7 +463,7 @@ export default function AttendanceReportPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Analisis Kehadiran</h2>
-            <p className="text-slate-500 font-bold text-sm mt-1">Visualisasi data dan analitik komprehensif sistem AttendTrack</p>
+            <p className="text-slate-500 font-bold text-sm mt-1">Visualisasi data dan analitik komprehensif sistem Magau Tracker</p>
           </div>
 
           <div className="flex flex-col md:flex-row gap-4">
@@ -512,7 +512,7 @@ export default function AttendanceReportPage() {
                 </div>
               )}
 
-              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
+              <div className="bg-white rounded-4xl shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-blue-50 text-blue-600 p-3 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-500">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -525,7 +525,7 @@ export default function AttendanceReportPage() {
                 <p className="text-4xl font-black text-slate-900 tracking-tight">{overallStats.attendanceRate}<span className="text-xl text-slate-300 ml-1">%</span></p>
               </div>
 
-              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
+              <div className="bg-white rounded-4xl shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-orange-50 text-orange-600 p-3 rounded-2xl group-hover:bg-orange-600 group-hover:text-white transition-colors duration-500">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -538,7 +538,7 @@ export default function AttendanceReportPage() {
                 <p className="text-4xl font-black text-slate-900 tracking-tight">{overallStats.lateRate}<span className="text-xl text-slate-300 ml-1">%</span></p>
               </div>
 
-              <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
+              <div className="bg-white rounded-4xl shadow-xl shadow-slate-200/60 border border-slate-50 p-6 group hover:-translate-y-1 transition-all duration-300">
                 <div className="flex items-center justify-between mb-4">
                   <div className="bg-rose-50 text-rose-600 p-3 rounded-2xl group-hover:bg-rose-600 group-hover:text-white transition-colors duration-500">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -616,7 +616,7 @@ export default function AttendanceReportPage() {
                     <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Status kehadiran real-time</p>
                   </div>
                   <div className="flex flex-col md:flex-row items-center justify-around gap-6" ref={pieChartRef}>
-                    <div className="w-[180px] h-[180px]">
+                    <div className="w-45 h-45">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={todayDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" stroke="none">
@@ -650,7 +650,7 @@ export default function AttendanceReportPage() {
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Komparasi Penempatan</h3>
                   <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Efektivitas presensi berdasarkan lokasi (%)</p>
                 </div>
-                <div className="h-[350px]">
+                <div className="h-87.5">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={departmentStats} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -669,7 +669,7 @@ export default function AttendanceReportPage() {
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">Analisa Waktu Kedatangan</h3>
                   <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Distribusi jam masuk karyawan hari ini</p>
                 </div>
-                <div className="h-[350px]">
+                <div className="h-87.5">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={timeDistribution}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -873,7 +873,7 @@ export default function AttendanceReportPage() {
                       <div className="mb-6 flex justify-between items-end">
                         <div>
                           <h5 className="text-lg font-black text-slate-900">Grafik Kinerja Bulanan</h5>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Estimasi kehadiran (22 hari kerja/bulan)</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Estimasi kehadiran (berdasarkan hari kerja aktif)</p>
                         </div>
                         <div className="flex gap-4">
                           <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div><span className="text-[8px] font-black text-slate-400 uppercase">Hadir</span></div>

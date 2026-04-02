@@ -268,7 +268,7 @@ class fotoController extends Controller
             'user_id' => $user->id,
             'description' => $request->description,
             'photo' => $filename,
-            'status' => 'IZIN',
+            'status' => 'PENGAJUAN',
             // fields below are nullable now
         ]);
 

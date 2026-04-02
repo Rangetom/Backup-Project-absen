@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Company;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
@@ -15,7 +16,10 @@ class ReportController extends Controller
     {
         try {
             $today = Carbon::today();
-            $totalEmployees = User::where('role', '!=', 'admin')->count();
+            // Count employees who already existed today
+            $totalEmployees = User::where('role', '!=', 'admin')
+                ->where('created_at', '<=', $today->endOfDay())
+                ->count();
 
             $startOfMonth = Carbon::now()->startOfMonth();
             $workingDaysSoFar = now()->diffInDaysFiltered(function (Carbon $date) {
@@ -59,7 +63,11 @@ class ReportController extends Controller
                 $late = Kehadiran::whereDate('created_at', $date)
                     ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
                     ->where('status', 'TELAT')->count();
-                $absent = max(0, $totalEmployees - ($present + $late));
+                
+                $employeesOnThatDay = User::where('role', '!=', 'admin')
+                    ->where('created_at', '<=', $date->endOfDay())
+                    ->count();
+                $absent = max(0, $employeesOnThatDay - ($present + $late));
 
                 $weeklyTrend[] = [
                     'day' => $dayName,
@@ -84,7 +92,12 @@ class ReportController extends Controller
                     ->whereHas('user', function($q) { $q->where('role', '!=', 'admin'); })
                     ->where('status', 'TELAT')->count();
                 
-                $expectedAttendance = $totalEmployees * 22; 
+                // Get employees who existed during that month
+                $employeesInMonth = User::where('role', '!=', 'admin')
+                    ->where('created_at', '<=', $monthDate->endOfMonth())
+                    ->count();
+                
+                $expectedAttendance = $employeesInMonth * 22; 
                 $absent = max(0, $expectedAttendance - ($present + $late));
 
                 $sixMonthTrend[] = [
@@ -113,7 +126,21 @@ class ReportController extends Controller
                   ->where('status', 'TELAT')->count();
 
                 $totalCompEmployees = $company->users_count;
-                $expectedCompAttendance = $totalCompEmployees * $workingDaysSoFar;
+                
+                // Better estimation: sum of working days for each user in this company since their creation (capped at start of month)
+                $users = User::where('company_id', $company->id)->where('role', '!=', 'admin')->get();
+                $expectedCompAttendance = 0;
+                foreach ($users as $u) {
+                    $userStart = $u->created_at->isAfter($startOfMonth) ? $u->created_at->startOfDay() : $startOfMonth;
+                    if ($userStart->isAfter(now())) continue;
+                    
+                    $userWorkingDays = $userStart->diffInDaysFiltered(function (Carbon $date) {
+                        return !$date->isWeekend();
+                    }, now());
+                    
+                    if (!now()->isWeekend()) $userWorkingDays += 1;
+                    $expectedCompAttendance += $userWorkingDays;
+                }
 
                 $departmentStats[] = [
                     'dept' => $company->name,
@@ -188,17 +215,20 @@ class ReportController extends Controller
             $startOfMonth = Carbon::now()->startOfMonth();
             $startOfYear = Carbon::now()->startOfYear();
             
-            $getStatsForRange = function($start, $end) use ($targetUserId) {
+            $getStatsForRange = function($start, $end) use ($targetUserId, $targetUser) {
                 // Ensure $start and $end are Carbon instances
                 $start = Carbon::parse($start)->startOfDay();
                 $end = Carbon::parse($end)->endOfDay();
 
-                $workingDays = $start->diffInDaysFiltered(function (Carbon $date) {
+                // Rule: Only count since account creation
+                $actualStart = $targetUser->created_at->isAfter($start) ? $targetUser->created_at->startOfDay() : $start;
+                
+                $workingDays = $actualStart->diffInDaysFiltered(function (Carbon $date) {
                     return !$date->isWeekend();
                 }, $end);
                 
-                // If today is a weekday, include it
-                if (!now()->isWeekend()) {
+                // If today is a weekday and within range, include it
+                if (!now()->isWeekend() && now()->between($actualStart, $end)) {
                     $workingDays += 1;
                 }
 
@@ -274,10 +304,10 @@ class ReportController extends Controller
 
                 $weeklyTrend[] = [
                     'day' => $dayName,
-                    'status' => $status ? $status->status : 'ABSEN',
+                    'status' => $status ? $status->status : ($date->startOfDay()->lt($targetUser->created_at->startOfDay()) ? 'BELUM BERGABUNG' : 'ABSEN'),
                     'present' => ($status && $status->status === 'HADIR') ? 1 : 0,
                     'late' => ($status && $status->status === 'TELAT') ? 1 : 0,
-                    'absent' => (!$status && !$date->isWeekend()) ? 1 : 0
+                    'absent' => (!$status && !$date->isWeekend() && $date->startOfDay()->gte($targetUser->created_at->startOfDay())) ? 1 : 0
                 ];
             }
 
@@ -296,14 +326,39 @@ class ReportController extends Controller
                     ->whereYear('created_at', $monthDate->year)
                     ->where('status', 'TELAT')->count();
                 
-                // Assuming 22 working days per month
-                $absent = max(0, 22 - ($present + $late));
+                // Calculate expected working days in that month since created_at
+                $monthStart = $monthDate->copy()->startOfMonth();
+                $monthEnd = $monthDate->copy()->endOfMonth();
+                
+                // Effective start is the later of monthStart or user creation
+                $effectiveStart = $targetUser->created_at->isAfter($monthStart) ? $targetUser->created_at->startOfDay() : $monthStart;
+                
+                $expectedAttendance = 0;
+                if ($effectiveStart->lte($monthEnd)) {
+                    // Use 22 as a base if it's a full month in the past, or calculate if it's the current month/creation month
+                    if ($effectiveStart->equalTo($monthStart) && $monthEnd->lt(now()->startOfMonth())) {
+                        $expectedAttendance = 22;
+                    } else {
+                        // Calculate working days in the range
+                        $tempDate = $effectiveStart->copy();
+                        $targetEnd = $monthEnd->lt(now()) ? $monthEnd : now();
+                        while ($tempDate->lte($targetEnd)) {
+                            if (!$tempDate->isWeekend()) {
+                                $expectedAttendance++;
+                            }
+                            $tempDate->addDay();
+                        }
+                    }
+                }
+
+                $absent = max(0, $expectedAttendance - ($present + $late));
 
                 $sixMonthTrend[] = [
                     'month' => $monthName,
                     'present' => $present,
                     'late' => $late,
-                    'absent' => $absent
+                    'absent' => $absent,
+                    'expected' => $expectedAttendance
                 ];
             }
 
@@ -360,10 +415,11 @@ class ReportController extends Controller
                     'users.name',
                     'users.role',
                     'users.company_id',
+                    'users.created_at',
                     DB::raw("COUNT(CASE WHEN attendances.status = 'HADIR' THEN 1 END) as hadir"),
                     DB::raw("COUNT(CASE WHEN attendances.status = 'TELAT' THEN 1 END) as telat")
                 )
-                ->groupBy('users.id', 'users.name', 'users.role', 'users.company_id')
+                ->groupBy('users.id', 'users.name', 'users.role', 'users.company_id', 'users.created_at')
                 ->get();
 
             $result = $summaries->map(function($item) use ($workingDaysInRange, $startDate, $endDate) {
@@ -408,13 +464,26 @@ class ReportController extends Controller
                     $formattedLate = implode(" ", $parts);
                 }
 
+                // Rule: Only count since account creation
+                $actualStart = $item->created_at->isAfter($startDate) ? $item->created_at->startOfDay() : $startDate;
+                $userWorkingDaysInRange = 0;
+                if ($actualStart->lte($endDate)) {
+                    $tempDate = $actualStart->copy();
+                    while ($tempDate->lte($endDate)) {
+                        if (!$tempDate->isWeekend()) {
+                            $userWorkingDaysInRange++;
+                        }
+                        $tempDate->addDay();
+                    }
+                }
+
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
                     'role' => ucfirst($item->role),
                     'hadir' => (int)$item->hadir,
                     'telat' => (int)$item->telat,
-                    'absen' => (int)max(0, $workingDaysInRange - $totalAttended),
+                    'absen' => (int)max(0, $userWorkingDaysInRange - $totalAttended),
                     'total_telat_menit' => $totalLateMinutes,
                     'total_telat_format' => $formattedLate,
                     'avatar' => strtoupper(substr($item->name, 0, 1))

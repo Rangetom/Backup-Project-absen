@@ -11,7 +11,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={plusJakartaSans.variable}>
+    <html lang="en" className={plusJakartaSans.variable} suppressHydrationWarning={true}>
       <body className="antialiased">
         <Providers>
           {children}

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Kehadiran;
 use App\Models\Company;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceController extends Controller
 {
@@ -74,6 +75,9 @@ class AttendanceController extends Controller
                 $presentUserIds = $attendances->pluck('user_id')->toArray();
                 
                 foreach ($expectedUsers as $user) {
+                    // Skip if user was created after the target date
+                    if ($user->created_at->startOfDay()->isAfter($todayDate)) continue;
+
                     if (!in_array($user->id, $presentUserIds)) {
                         // Determine if ALPA or just "Belum Absen"
                         // Rule: Automatis alpha if not absen before jam pulang
@@ -208,9 +212,12 @@ class AttendanceController extends Controller
             $late = $attendances->where('status', 'TELAT')->count();
             
             // Calculate absent days (working days - total attendance)
-            $totalDays = now()->day; // Days passed in current month
+            // Rule: Only count since account creation
+            $startCountingFrom = $user->created_at->isAfter($startOfMonth) ? $user->created_at->startOfDay() : $startOfMonth;
+            $totalDaysToCount = now()->diffInDays($startCountingFrom) + 1;
+            
             $totalAttendance = $attendances->count();
-            $absent = max(0, $totalDays - $totalAttendance);
+            $absent = max(0, $totalDaysToCount - $totalAttendance);
 
             return response()->json([
                 'present' => $present,
@@ -227,7 +234,7 @@ class AttendanceController extends Controller
     {
         try {
             $request->validate([
-                'status' => 'required|string|in:HADIR,TELAT,DITOLAK,ALPA,IZIN',
+                'status' => 'required|string|in:HADIR,TELAT,DITOLAK,ALPA,IZIN,PENGAJUAN,DISUTUJUI',
             ]);
 
             // Handle virtual ID (creation of record for ALPHA user)

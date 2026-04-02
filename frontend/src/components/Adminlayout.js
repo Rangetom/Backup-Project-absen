@@ -78,7 +78,7 @@ export default function AdminLayout({ children }) {
               <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform duration-300">
                 <Calendar className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">AttendTrack</h1>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">Magau Tracker </h1>
             </div>
           </div>
 
